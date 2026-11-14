@@ -25,7 +25,7 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 
 1. **Version mismatch.** The installed build reports `100-Rev13` / `0.46D`; the community docs are `100-Rev14` beta. APIs such as `ModHelper.AddEnding`, `GetGameVersion`, `AddDebugPanel`, and window control are not in the installed assembly.
 2. **No world block grid — but physical racks/cables are still possible.** Machines and containers are items. The current design uses **3×3 rack/control-panel items + 1×1 PoE cable items** placed in the base grid (or a dedicated rack room), not a block world. Cables carry power, data, and logistics scheduling — **not items**.
-3. **Items are unique instances.** Same-name items can differ by condition, authenticity, contents, and features. Current design uses **disks** (512 indexes / 65,535 bytes). Complex items (guns/containers) are **disassembled on ingest**; atomic/sealed items are refused and must be kept in real boxes. This keeps disk snapshots to leaf items instead of full item trees.
+3. **Items are unique instances.** Same-name items can differ by condition, authenticity, contents, and features. Current design uses **disks** (512 indexes / 65,535 bytes). Complex items (guns/containers) are **disassembled on ingest**; atomic/sealed items are refused and must be kept in real boxes. Permanently upgraded items (e.g. infinite batteries) are stored as **instances**, one index each, and are never merged. This keeps disk snapshots to leaf items instead of full item trees.
 
 ## Repository layout
 

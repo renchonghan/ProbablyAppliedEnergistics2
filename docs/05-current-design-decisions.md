@@ -238,6 +238,34 @@
   - **自动补货开关**：每个条目单独开关。
 - 补货目标/上限可设；避免玩家不想补的东西被补。
 
+### 4.6 实例物品与校验（不能合并）
+
+> **这不是 edge case，这是“合并了会被玩家打”的 case。**
+
+典型例子：**无限强化电池**（`HypertechBatteryHelper`）：
+
+- `HYPERTECH_BATTERY_TAG`；
+- `HYPERTECH_BATTERY_OUTPUT_INT`（基础 **12**，每次强化 +10）；
+- `HYPERTECH_BATTERY_UPGRADE_COUNT_INT`（强化次数）；
+- 还能继续叠 `unitValue`。
+
+如果把这种电池当成普通“物品类型”合并，所有电池会变成一个条目，强化等级直接蒸发。必须按**实例**存：
+
+| 存储类别 | 规则 |
+|---|---|
+| **Type-stackable** | 简单可堆叠物品；同 `ItemKey` 合并数量 |
+| **Instance** | 有永久强化/改装/序列号/独特状态的物品；**一件一个索引**，完整快照，不合并 |
+| **Refuse** | 机器、带内容窗口、原子/密封/任务/未知模组物品；拒绝虚拟存储，用真实盒子/机架 |
+
+规则：
+
+- 任何带永久强化 tag 的物品（`HYPERTECH_BATTERY_*`、`MACHINE_*`、`MODULE_*`、`TURBO_*`、`CURRENT_CHARGE_TAG`、`power_source_item_*` 等）→ **Instance**，一件一个索引。
+- 被强化过的机器 → 优先 **Refuse**：机器住机架/真实盒子，不进磁盘；如果一定要进磁盘，必须 Instance + 完整快照 + 校验。
+- `Instance` 条目保存：`identifier`、`unitCount`、全部 tag、`itemFeatures`、`itemTypes`、`unitValue`、`lateUnitValue`、`shape/state` 等；数值用精确类型，不截断。
+- **入库校验**：序列化 → 反序列化成临时物品 → 对比实例签名（所有 tag/feature/数值）；不一致就拒绝，原件留在 Inbox，提示“请用真实盒子”。
+- **保守默认**：只有白名单里的简单物品允许 Type-stackable；其余一律 Instance 或 Refuse。宁可拒绝，不可静默合并。
+- 512 索引是硬上限；每个独特电池/机器占 1 个索引，装不下就换磁盘或放真实盒子。
+
 ---
 
 ## 5. 订单与自动合成
@@ -345,6 +373,7 @@
 | 取出/上交易区 | Inbox 真实物品走原生 quick-move；Storage 虚拟条目调用 `ModHelper.MoveItemToFrontCounter` / `GraphUtils.TryAcceptOnce` |
 | Inbox 自动转移 | `onSlotAddItemFunc` / 轮询；快照 → 写盘 → 校验 → 删除；短暂 lock；失败保留 |
 | 磁盘快照 | 完整序列化**叶子 item + feature**；复杂物品先拆成叶子，原子物品拒绝；`SaveItemNode` 不含 `itemFeatures`，需自定义；version + migration + 读回校验 |
+| 实例分类/校验 | 扫描永久强化 tag/feature（如 `HYPERTECH_BATTERY_*`）→ Instance/Refuse；实例签名 + 序列化往返校验；不合并 |
 | 自动补货 | 检查配方/原料/能量；成功才写入磁盘条目 |
 | 即时完成周期 | `MachineTurboBoosterAdv.BoostMachine()` 思路：调用机器的 `onCycleEnd*`；模组配方直接执行 |
 | 能量存储 | `power_source_item` / kJ 标签；Power 模块/供能矩阵 |
