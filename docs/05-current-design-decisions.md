@@ -415,8 +415,9 @@
 
 规则：
 
-- **任何耐久/可变参数/永久强化 tag**（`DURABILITY_TAG`、`MAX_DURABILITY_TAG`、`DURABILITY_FAKE_TAG`、`HAND_CONDITION`、`FRESH_FOOD_TAG`、`CHARGE_*`、`power_source_item_energy`、`HYPERTECH_BATTERY_*`、`MACHINE_*`、`MODULE_*`、`TURBO_*`、`CURRENT_CHARGE_TAG` 等）→ **Instance**，一件一个索引。
-- **判断口径**：玩家会关心“这一件和那一件不一样”的，就不合并；耐久、磨损、充能、新鲜度、纯度、品质、内容物、机器状态都算。
+- **任何耐久/可变参数/永久强化 tag**（`DURABILITY_TAG`、`MAX_DURABILITY_TAG`、`DURABILITY_FAKE_TAG`、`HAND_CONDITION`、`FRESH_FOOD_TAG`/`FRESHNESS_TAG`、`CHARGE_*`、`power_source_item_energy`、`HYPERTECH_BATTERY_*`、`MACHINE_*`、`MODULE_*`、`TURBO_*`、`CURRENT_CHARGE_TAG` 等）→ **Instance**，一件一个索引。
+- **新鲜度是固定值**：`FRESHNESS_TAG` 在生成时定死，不随时间腐烂；但不同值仍是不同实例（荧光莓/Bloomberry 酿酒要用），不能合并。
+- **判断口径**：玩家会关心“这一件和那一件不一样”的，就不合并；耐久、磨损、充能、新鲜度（固定值）、纯度、品质、内容物、机器状态都算。
 - **机器**：不拆，整机 Instance 存；存进去不工作、不耗电；要成为**虚拟产线/监控托管**必须放进**机架** + 插 **ME 适配器** + 频道连接。快照包含电池槽/模块；快照失败就拒绝。
 - **生物边界**：活鱼、鱼苗、生长中的植物 **Refuse**；干种子（带基因）、鱼卵、鱼获/肉可以按 Instance 存；水按液体条目/纯度存。
 - `Instance` 条目保存：`identifier`、`unitCount`、全部 tag、`itemFeatures`、`itemTypes`、`unitValue`、`lateUnitValue`、`shape/state`、子物品（仅机器）等；数值用精确类型，不截断。
@@ -599,7 +600,7 @@
 - **频道**：**1 个已连接的 ME 适配器（虚拟/监控）= 1 通道**；常规线 **8**，致密线 **32**；机架扫描内部适配器数量并申请总量，按槽位顺序点亮；没抢到的适配器按未插处理，不虚拟/不监控/不服务。
 - **字节**：固体 **8 个 = 1 byte**；液体 **100 ml = 1 byte**；磁盘从 **16 索引 / 256 bytes** 起，材料强化到 **512 / 65,535**，升级保留内容。
 - **入库拆解**：枪/容器等复杂物品自动拆；机器整机 Instance 存但停机；原子/密封/任务物品拒绝，用真实盒子。
-- **实例规则**：任何耐久/可变参数（`DURABILITY_*`、`HAND_CONDITION`、`FRESH_FOOD_TAG`、充能、纯度、内容物、机器状态）→ **Instance**，一件一索引；只有无状态白名单耗材合并；索引满了换盘/真实盒子，不合并。
+- **实例规则**：任何耐久/可变参数（`DURABILITY_*`、`HAND_CONDITION`、`FRESH_FOOD_TAG`/`FRESHNESS_TAG`（固定值，不腐烂）、充能、纯度、内容物、机器状态）→ **Instance**，一件一索引；只有无状态白名单耗材合并；索引满了换盘/真实盒子，不合并。
 - **卡死模组**：带 `MODULE_STUCK_TAG` 的机器入库时自动拆模组，**从 ME 能源柜扣 200KJ**；柜内不足就拒绝；预付费/电流转换器实现 Phase 0 确认。
 - **ME 适配器（一物品双 profile）**：1×1 电池槽；插上+频道连接才接管；**1 适配器 = 1 通道**。确定性机器 = **Virtual**（纯计算，不跑真机器 cycle、不调用 `onCycleEnd*`，1 Hz 清输入/输出）；水培/RAS/宿主屠宰机 = **Monitor**（原版 cycle 照跑，网络只监控/供电/白名单物流）；未知机器默认 Monitor/只读。没有独立服务适配器。
 - **过程模板**：2×1 Pattern 的第二种编码；**不改屠宰机设置**，只读/尊重 `AUTO_BUTCHER_*`；只决定投什么鱼 + 输出白名单；常驻=按当前设置投喂，加急=选当前设置仍接受的最小鱼；缺合适鱼直接显示缺少材料；输出格递归扫描，只收白名单；过程模板输出幽灵点击=排产，不是瞬间出肉。
