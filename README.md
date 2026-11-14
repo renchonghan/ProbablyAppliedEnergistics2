@@ -9,7 +9,7 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 - **Research & design only** — there is no playable mod yet.
 - Current target: **Probably Stolen 100-Rev13** (`Application.version = 0.46D`).
 - The community modding docs track **100-Rev14 beta**; some documented APIs are not present in the installed build. See [the feasibility doc](docs/03-modding-api-feasibility.md#0-先看这一节文档版本--安装版本).
-- **Current design:** 3×3 rack/controller/terminal/power arrays + 1×1 PoE cables + virtual network transfers + order-based autocrafting. No freight/item pipes. Hero tools include a 3×2 fluid transfer gun. See [05 — Current design decisions](docs/05-current-design-decisions.md).
+- **Current design:** 3×3 rack (universal machine bays) / controller / terminal / power module / disk drive + 1×1 PoE cables + disk-based virtual storage + order-based autocrafting. No freight/item pipes. Hero tools include a 3×2 fluid transfer gun. See [05 — Current design decisions](docs/05-current-design-decisions.md).
 
 ## Documents
 
@@ -19,13 +19,13 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 | [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent/mortgage, customers, trading, appraisal, contraband/inspection, items/containers, machines/power, afterhours, progression, story/endings |
 | [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API inventory, Rev13 vs Rev14 differences, AE2 → game mapping, storage/UI/energy/network options, architecture, roadmap, risks, repo naming |
 | [04 — Project brief](docs/04-project-brief.md) | One-page current scope, MVP, non-goals, milestones |
-| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks/controller/terminal/power module, PoE cables, virtual transfers, ghost items, Inbox page, order/autocrafting system, 3×2 fluid transfer gun, MVP milestones, technical hooks |
+| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks (universal machine bays) / controller / terminal / power module / disk drive, PoE cables, disk-based virtual storage, ghost items, Inbox page, order/autocrafting system, 3×2 fluid transfer gun, MVP milestones, technical hooks |
 
 ## Key findings
 
 1. **Version mismatch.** The installed build reports `100-Rev13` / `0.46D`; the community docs are `100-Rev14` beta. APIs such as `ModHelper.AddEnding`, `GetGameVersion`, `AddDebugPanel`, and window control are not in the installed assembly.
 2. **No world block grid — but physical racks/cables are still possible.** Machines and containers are items. The current design uses **3×3 rack/control-panel items + 1×1 PoE cable items** placed in the base grid (or a dedicated rack room), not a block world. Cables carry power, data, and logistics scheduling — **not items**.
-3. **Items are unique instances.** Same-name items can differ by condition, authenticity, contents, and features. For the MVP, keep **real item slots + ghost placeholders + auto-refill**; avoid virtual serialization until the real-item version is proven.
+3. **Items are unique instances.** Same-name items can differ by condition, authenticity, contents, and features. Current design uses **disks** (512 indexes / 65,535 bytes) with full item snapshots; the MVP virtualizes common items first while unique items can stay in real slots until feature serialization is proven.
 
 ## Repository layout
 
