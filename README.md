@@ -9,7 +9,7 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 - **Research & design only** — there is no playable mod yet.
 - Current target: **Probably Stolen 100-Rev13** (`Application.version = 0.46D`).
 - The community modding docs track **100-Rev14 beta**; some documented APIs are not present in the installed build. See [the feasibility doc](docs/03-modding-api-feasibility.md#0-先看这一节文档版本--安装版本).
-- **Current design:** 2×4 rack (8 universal machine bays) / 3×3 controller / terminal / power module / disk drive + 1×1 PoE cables + disk-based virtual storage + order-based autocrafting. No freight/item pipes. Machines store as inert instances and need a rack + AE Conversion Module (non-rechargeable network power adapter) to work; the ME power cabinet (16 battery slots + 1 converter slot; 255 → 65,535 kJ) charges once per day after bills via a Current Converter (daily kJ; normal battery drains once, infinite battery adapts). Hero tools include a 3×2 fluid transfer gun. See [05 — Current design decisions](docs/05-current-design-decisions.md).
+- **Current design:** 2×4 rack (8 universal machine bays) / 3×3 controller / terminal / power module / disk drive + 1×1 PoE cables + disk-based virtual storage + order-based autocrafting. No freight/item pipes. Machines store as inert instances and need a rack + AE Conversion Module (non-rechargeable network power adapter) to work; the ME power cabinet (16 battery slots + 1 converter slot; 255 → 65,535 kJ) charges once per day after bills via a Current Converter (daily kJ; normal batteries are online backup/drain once, infinite battery is daily-settlement only). Hero tools include a 3×2 fluid transfer gun. See [05 — Current design decisions](docs/05-current-design-decisions.md).
 
 ## Documents
 
