@@ -4,7 +4,7 @@
 
 ## 项目名
 
-- 仓库：`ProbablyAppliedEnergistics2`
+- 仓库：https://github.com/renchonghan/ProbablyAppliedEnergistics2
 - 显示名：**可能是应用能源2 / Probably Applied Energistics 2**
 - 声明：Unofficial fan mod, not affiliated with Questing Goose Studio, tinyBuild, or the Applied Energistics team.
 
@@ -88,7 +88,7 @@
 
 ## 技术底线
 
-- 目标版本：Rev13 安装版（`0.46D`）；清单 `<Version>0.46</Version>`；Rev14 后再改 `1.0.0`。
+- 目标版本：Rev13 安装版（`0.46D`）；`<GameVersions>` 里写 `<Version>0.46</Version>`；Rev14 后再改 `1.0.0`。
 - 能力：优先空 `<Capabilities />`；不用 native/dynamic-code/reflection-external/threads。
 - 存档：先写盘后删、失败回滚、不生成 0 个真实物品、卸载可降级。
 - 模板：2×1 物品；数据写 `itemState` tags（`SaveItemNode` 保存 tags，不保存 `itemFeatures`）；读回校验。

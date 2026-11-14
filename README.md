@@ -17,7 +17,7 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 |---|---|
 | [01 — AE2 gameplay](docs/01-ae2-gameplay.md) | ME networks, energy, channels, storage cells, terminals, buses, autocrafting, subnetworks, P2P/quantum/spatial, progression, source map |
 | [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent/mortgage, customers, trading, appraisal, contraband/inspection, items/containers, storage bays, machines/power, afterhours, progression, story/endings |
-| [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API inventory, Rev13 vs Rev14 differences, AE2 → game mapping, storage/UI/energy/network options, architecture, roadmap, risks, repo naming |
+| [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API inventory, Rev13 vs Rev14 differences, AE2 → game mapping, current storage/UI/energy/network architecture, Phase 0 checklist, risks, repo structure |
 | [04 — Project brief](docs/04-project-brief.md) | One-page current scope, MVP, non-goals, milestones |
 | [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks (2×4 internal bays = 8 universal slots) / 3×3 controller / terminal / pattern controller (five 17×10 tabs) / power module / disk drive, dual-profile ME adapter, crafting/processing patterns, 2×1 patterns, PoE cables, disk-based virtual storage, template-gated ghost items, hydroponic/RAS monitors with overstock alarms, Inbox page, daily plan/autocrafting, atomic separator, 3×2 fluid transfer gun, milestones, technical hooks |
 

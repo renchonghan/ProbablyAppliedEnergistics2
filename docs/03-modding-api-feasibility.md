@@ -7,11 +7,11 @@
 > - AE2 官方 guidebook + 源码：`ModsDev/reference/applied-energistics-2/`
 > - 本地化全表：`ModsDev/reference/localization/`
 >
-> **Current design note（2026-11-14）**：本文是 API/可行性调查，不是最终设计。当前设计决议见 [`05-current-design-decisions.md`](05-current-design-decisions.md)。本文中“无电缆/纯逻辑链接”“只做物理存储”“MVP 不做自动合成”等表述是探索性选项，已被 05 覆盖：
+> **Current design note（2026-11-14）**：本文是 API/可行性调查 + 当前架构摘要；设计决议以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 为准。文中保留少量“早期方案已废弃”的对比，不要照做：
 > - **电缆**：1×1 PoE 线缆物品，负责电 + 数据 + 物流调度，不运物品；
 > - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化/耐久/可变参数物品（如无限电池、滤芯、工具）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：确定性机器 = 虚拟产线（纯计算），水培/RAS/宿主屠宰机 = 监控托管（原版 cycle + 白名单物流 + 报警）；
-> - **自动合成**：订单系统在范围内（客户订单/配额订单/递归子订单），能量可即时完成周期。
-> - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；活鱼/鱼苗/生长中植物不虚拟存储。
+> - **自动合成**：3×3 模板控制器（5 页 17×10，2×1 模板）；合成模板走虚拟产线，过程模板走真机器 ETA；订单系统含客户/配额/递归子订单。
+> - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；无滤芯水循环（脏水→液体磁盘→原子分离机→纯水回灌）；活鱼/鱼苗/生长中植物不虚拟存储。
 
 ---
 
@@ -285,7 +285,7 @@ ModHook.OnModItemDirectoryInit += dir =>
 ### 2.4 自定义 UI
 
 ```csharp
-CustomUIManager.Window("my_mod_id.terminal", "Cargo Terminal", CustomUIManager.LAYER_PAPER)
+CustomUIManager.Window("my_mod_id.terminal", "ME Terminal", CustomUIManager.LAYER_PAPER)
     .SetSize(640, 480)
     .SetDraggable(true)
     .AddLabel("Search")
@@ -306,7 +306,7 @@ CustomUIManager.Window("my_mod_id.terminal", "Cargo Terminal", CustomUIManager.L
 - 层：`LAYER_PAPER`（纸张/文档）、`LAYER_FRONT`、`LAYER_REAR`、`LAYER_META`、`LAYER_MENU`、`LAYER_OVERLAY`。
 - 样式：默认游戏控件；`UseMachineryStyle()` 或 `Style.Machinery` 让窗口使用机器外观。
 - 更新：`window.Get("id").SetProgress/SetText/SetBool/...`；空安全。
-- **没有原生物品槽/拖放控件**；需要真实物品槽时用机器窗口（下一节），或自定义“点击图标 → 生成/移动物品”的交互。
+- 自定义 UI 没有原生物品槽/拖放控件；需要真实物品槽时用机器窗口（控制终端 Inbox、机架、Disk Drive、模板控制器）。
 
 ### 2.5 机器窗口
 
@@ -335,21 +335,21 @@ MachineHelper.SetupBatterySlot(battery, item);
 - 布局：`MachineryStack.Vertical/Horizontal`；`window.AddHeaderButton(...)`。
 - 读取：`MachineHelper.GetBodyStorage(item, i)`、`GetBatterySlot`、`GetModuleInv`、`GetSlot`。
 - **面板顺序就是存档顺序**：发布后新面板只能加在末尾，或用 `displayOrder` 改变显示顺序。
-- 这是实现“存储架/驱动器/样板编码器/合成 CPU”的最合适 UI。
+- 这是实现“机架 / Disk Drive / 模板控制器 / 控制终端 / Monitor”的最合适 UI。
 
 ### 2.6 模组配置与模组数据
 
 - 配置：`ModHelper.GetConfig(modId).Define(...)`，自动生成设置面板；值保存在 `persistentDataPath/ModConfigs/<modId>.json`，跨存档共享。
 - 按局数据：`ModHelper.SetModData/GetModData/SetModDataInt/...`，随本局存档保存；适合网络 ID、设备列表、任务进度等小数据。
 - 文件：`GetModFolder`、`ReadModFileText/Bytes`、`GetModDataFolder`、`WriteModDataFileText/Bytes` 等；只接受相对路径。
-- 物品 tag 优先用于“属于某个物品”的数据（如网络控制器 ID、存储单元容量）。
+- 物品 tag 优先用于“属于某个物品”的数据（如 ME Controller ID、磁盘容量、模板编码）。
 
 ### 2.7 玩法扩展 API
 
 | 功能 | API（安装版已验证） | 用途 |
 |---|---|---|
 | 掉落表 | `AddLootEntry` / `RegisterLootTable` / `RegisterLootGroup` / `OnLootRolled` | 把模组物品放进垃圾场/供应商/远征掉落 |
-| 人脉升级 | `AddNetworkUpgrade` / `SetNetworkTabLabel` | 用游戏原有升级商店承载“网络控制器/存储单元”解锁 |
+| 人脉升级 | `AddNetworkUpgrade` / `SetNetworkTabLabel` | 用游戏原有升级商店承载“ME Controller / Rack / Disk Drive / Pattern Controller”解锁 |
 | 起始方案 | `AddStartingScenario` | 新增职业/开局，附带初始网络设备 |
 | 起始天赋 | `AddStartingPerk` | 新增正面/负面天赋 |
 | 难度 | `AddDifficulty` / `ModifyDifficulty` | 新难度/调整网络成本 |
@@ -391,7 +391,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架（内部 2×4）+ 8 万能槽**；控制终端 = 容器/终端 | 中 |
 | Terminal | 自定义 UI / 机器窗口 | 控制终端 Storage 页：搜索/取出/即产；Inbox 页真实容器；0 库存仅有模板命中的输出显示幽灵 | 中 |
 | Import/Export Bus | HopperHelper 的点对点物流 | **网络导入/导出功能**（控制终端配置），绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
-| Storage Bus | 容器适配器 | 逻辑链接到一个容器，让网络索引它；不移动物品 | 低-中 |
+| Storage Bus | 容器适配器 | 当前不做独立 Storage Bus；网络导入/导出功能可绑定容器，按白名单索引/搬运 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置）；订单系统按模板生产；虚拟产线纯计算，监控托管走真机器 | 高 |
 | 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Monitor profile**：原版 cycle 照跑，网络只监控/供电/白名单物流；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→原子分离机→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
@@ -424,201 +424,134 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ## 4. 关键设计决策
 
-> **Current decision（见 05）**：用 1×1 PoE 线缆物品在统一机房/基础网格里布线；网络图是逻辑的，但线缆是真实占格物品。线缆只带电/数据/调度，不运物品。
+> **Current decision（见 05）**：用 1×1 PoE 线缆物品在基础背包网格/机柜阵列之间布线；网络图是逻辑的，但线缆是真实占格物品。线缆只带电/数据/调度，不运物品。
 
-### 4.1 网络拓扑：逻辑链接（推荐）
+### 4.1 网络拓扑：PoE 线缆 + 逻辑网络图
 
-**方案 A：逻辑链接（推荐）**
+- **1×1 PoE 线缆物品**放在基础背包网格/机柜阵列之间；电、数据、调度一线，**不运物品**。
+- 线缆是真实占格物品，拓扑是**逻辑网络图**：机架/控制器/终端/电力模块/磁盘驱动器通过相邻端口/线缆连接，按 `uniqueId` 记录链路；不要求世界方块网格。
+- 线缆有等级/容量/成本；可剪断、改线、看负载；过载 = 设备离线/掉电；冗余/双 uplink 有意义。
+- 机架是 3×3 外观、内部 2×4 槽；相邻 3×3 机架形成 Rack Array；线缆只负责拓扑/供电/数据/调度，端点设备自己搬物品。
+- 早期“纯逻辑链接卡/控制器 UI 点选设备”方案已废弃；当前必须接线，保留空间成本和布线乐趣。
+- 存档：线缆/端口关系用 `uniqueId` + 端口 tag 持久化；读档重建网络图；找不到设备时降级为离线并记录日志。
 
-- 网络控制器物品带 `NETWORK_ID` tag；设备/容器带 `NETWORK_ID` 或链接卡记录。
-- 链接方式：
-  - 用“链接卡”物品：右键/激活时记录目标 `uniqueId`，再激活控制器写入网络；
-  - 或者控制器 UI 列出所有可链接设备，点击添加；
-  - 链接关系保存在控制器 tag（JSON）或 `ModHelper` modData（按网络 ID）。
-- 网络在 `OnGameLoadedNormal` / `OnShutterOpenedLate` / 手动刷新时重建索引；不要每帧全量扫描。
-- 设备/容器通过 `uniqueId` 解析：`EmporiumEntry.Instance.FindItemByUniqueID(id)` 或遍历 `PlayerStore.FindAllItem()`。
-- 优点：不依赖世界坐标/格子；存档稳定；UI 直观；可做子网。
-- 缺点：没有 AE2 的“布线空间感”；需要用 UI/负载上限补回设计感。
+### 4.2 存储模型：虚拟磁盘 + 真实容器
 
-**方案 B：网格相邻（不推荐）**
+- **主存储是磁盘**：Solid/Fluid Disk 1×1，Disk Drive 3×3（16 槽）；Storage 页是虚拟索引，Inbox 是真实容器页。
+- 磁盘容量：16 索引/256 bytes 起，材料强化到 512/65,535；固体 8 个 = 1 byte，液体 100ml = 1 byte；升级保留内容。
+- 入库事务：拆解计划 → 写盘 → 校验 → 删除原件；失败保留 Inbox；库存归零删条目/释放索引；模板命中才生成幽灵。
+- **Instance 规则**：耐久/可变参数/永久强化/独特状态 → 一件一索引，不合并；只有无状态白名单耗材 Type-stackable；512 索引满了换盘/真实盒子。
+- **固定新鲜度**：`FRESHNESS_TAG` 生成时定死，不随时间腐烂；不同值仍是不同实例（荧光莓/Bloomberry 酿酒用）。
+- **真实容器仍然必要**：原子/密封/任务物品、活鱼/鱼苗/生长中植物、玩家不想拆的复杂物品，放真实盒子/鱼缸/水培机。
+- 序列化风险：`SaveItemNode` 不包含 `itemFeatures`；需要自定义 feature/子物品快照，version + migration + 读回校验；物品工厂必须注册。
+- 早期“物理存储 MVP”方案已被 05 覆盖；当前虚拟磁盘是主路径，物理容器是边界/兜底。
+- 类型/字节不是 AE2 1:1；见 05 §3.6。
 
-- 把“线缆”做成占格物品，放在同一个 `GameGridInventory` 里，靠 `FindAdjacentType` 判断连接。
-- 问题：
-  - 商店容器格子有限，玩家不会愿意把背包变成布线板；
-  - 物品会被顾客/事件/检查移动；
-  - 机器是物品，放在柜台/背包里，拓扑不稳定；
-  - 存档/读档后相邻关系可能变化。
-- 只适合做“小游戏/彩蛋”，不适合主系统。
+### 4.3 UI：控制终端 + 机器窗口
 
-### 4.2 存储模型：物理 vs 虚拟
+> **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页虚拟列表，Inbox 页真实容器（原生拖放/快捷移动）；0 库存只有模板命中才显示幽灵；过程模板点击排产，不瞬间出产物。
 
-> **Current decision（见 05）**：3×3 控制终端 + Disk Drive/磁盘；Storage 页是虚拟库存视图，Inbox 页是真实容器页；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；幽灵只由模板命中生成；复杂物品拆成叶子，原子/密封物品拒绝；耐久/可变参数/永久强化物品按实例存，不合并。
+- **Control Terminal 3×3**：Storage / Inbox / Daily Plan 三页；Storage 是虚拟索引，Inbox 是真实容器，扔进来立刻转移。
+- **Rack 3×3**：内部 2×4 个 `GameSlotInventory`，`MachineryPanelRow.SetColumns(2)`，复用工具箱槽底/标签。
+- **Disk Drive 3×3**：内部 2×8 磁盘槽；Pattern Controller 3×3：`MachineryTabs` 5 页，每页 `GameGridInventory(17,10)`，参考 `StorageExpansionHelper`/`storage_bay_large`；模板 2×1。
+- **Monitor 页**：水培/RAS 只读概况 + 报警（水预算/废物/过滤或分离循环/饲料/电力）；手动设置回原版机器窗口；不做复杂 Farm 控制台。
+- **Storage 列表**：搜索/过滤/排序/取出/即产；虚拟条目上的 Alt/Ctrl 自己复刻；幽灵锁死。
+- **网络诊断**：设备、链路、频道、能量、错误列表。
+- 风险：`MachineryTabs`/`StorageExpansionHelper` 是游戏内部公有类，Phase 0 要验证 mod 程序集能直接引用；不行就自定义 5 页 tab UI。
 
+### 4.4 能量：ME 能源柜 + 电流转换器
 
-
-**物理存储（推荐 MVP）**
-
-- 存储单元 = 带 `contentWindow` 的物品，内部是 `GameGridInventory` / `GameSlotInventory`，真实存放 `GameItem`。
-- 优点：
-  - 存档/读档由游戏原生 `SaveManager` 处理；
-  - 物品的 feature/内容/状态完整保留；
-  - 可以直接打开单元查看/整理；
-  - 不会因为自定义序列化丢数据。
-- 缺点：
-  - 容量是格子/形状，不是 AE2 的字节/类型；
-  - 大容量需要大网格/多页 UI，性能/操作体验受限；
-  - 不能真正“63 种类型/百万字节”。
-
-**虚拟存储（后期/高风险）**
-
-- 存储单元只保存序列化后的物品快照（JSON/二进制），终端显示虚拟列表，取出时重建物品。
-- 可用 `PlayerStore.EncodeItem(item)` / `SaveManager.EncodeNodes` 做序列化，但注意：
-  - `SaveItemNode` **不包含 `itemFeatures`**；feature 由 `PlayerStore.savedItemFeatureList` 按 `parentItemUniqueId` 在存档载入时重新挂回。中途 `EncodeItem` 再 `DecodeNodes` 会丢 feature。
-  - 需要自己序列化 `ItemFeature`/`TagSystem`/子容器，或保留原物品对象不销毁；
-  - 物品工厂必须仍然注册（`DirectoryMaster.Item(identifier)`），否则读档变成未知物品；
-  - 模组更新/卸载后的兼容性复杂。
-- 早期建议（已被 05 覆盖）：**MVP 做虚拟化 + 入库拆解**——复杂物品拆成叶子部件/内容物，原子/密封物品拒绝；部件快照/读回测试通过后再扩大范围。
-
-**类型/字节的替代定义（如果要做）**
-
-- `ItemKey` = `identifier` + 关键 feature 签名（真伪/状态/纯度/新鲜度/内容物 ID）；
-- `bytes` = 物品数量 × 单位重量（可用 `unitValue` 或自定义 `storageWeight`）；
-- `types` = 不同 `ItemKey` 数量；
-- 独特物品（枪、义体、容器）强制按实例存，不合并。
-
-### 4.3 UI：终端用自定义 UI，槽位用机器窗口
-
-> **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页（原生拖放/快捷移动）；0 库存只有模板命中才用锁定的幽灵物品，不生成 0 个真实物品；无模板耗尽即删除条目。
-
-
-- **终端**：自定义 UI 最适合“搜索/过滤/排序/列表/按钮”。用 `AddInput` + `BeginScrollFlexible` + `AddButton`/`AddImage` 构建。
-  - 每行显示：物品图标、名称、数量、价值、所在容器、按钮（取出 1/一组/全部）。
-  - 搜索：按名称/ID/类型/feature；支持正则（可选）。
-  - 排序：名称/价值/数量/类型。
-  - 存入：扫描玩家背包，按过滤器存入网络；或提供“存入全部”按钮。
-  - 没有原生拖放：用按钮/点击；如果必须拖放，只能用机器窗口的真实物品槽。
-- **存储架/驱动器**：机器窗口，`GameGridInventory` 放存储单元；`MachineHelper.Panel`。
-- **模板控制器/合成 CPU**：机器窗口 + `MachineryTabs`（5 页，每页 `GameGridInventory(17,10)`）；参考 `StorageExpansionHelper`/`storage_bay_large`；模板 2×1。风险：这些是游戏内部公有类，Phase 0 要验证 mod 程序集能直接引用；不行就自定义 5 页 tab UI。
-- **监控页**：水培/RAS 只读概况 + 报警（水预算/废物/过滤或分离循环/饲料/电力）；不做复杂控制台，手动设置回原版机器窗口。
-- **网络诊断**：自定义 UI 列表，显示设备、链接、负载、能量、错误。
-
-### 4.4 能量
-
-- 方案 A（推荐）：控制器物品带电池槽（`MachineHelper.SetupBatterySlot`），网络从电池/电源物品取电；`PowerHelper` 的 `power_source_item_energy`/`bandwidth` 直接可用；`powerblock` 可充电。
-- 方案 B：控制器维护“网络电荷” tag，每日/每回合消耗；用 `AddCredit`/维护费抽象，简单但不像 AE2。
-- 方案 C：混合——设备运转消耗“电荷”，电荷由电源物品/发电机补充；终端/链接本身不耗电。
-- 注意：`PowerHelper.HandlePower` 主要处理 `machinery` tag 的物品；模组控制器若使用 `MachineryHelper.InitMachinery`，会被纳入电力系统，但需要确认商店场景中的物品是否在 `shipManager.ship` 图里（`GetAllPoweredOnMachinery` 的遍历根）。这一点应在 Phase 0 用实际场景验证，不要假设。
+- 3×3 **Power Module** = 巨型 UPS；16 普通电池槽 + 1 电流转换器专用槽；容量 255 → 65,535 kJ。
+- 电流转换器输入**每日 kJ**；每天付账后只充一次；普通电池在线备电 + 日结单块最多 1/4；无限电池只有日输出额度（基础 12，+10/次，无上限，结算读一次不缓存）。
+- 日结顺序：无限电池吃 demand → 转换器补差 → 柜先满 → 电池逐块倒（1/4 或满）；实际电网抽取次日账单。
+- ME 适配器本身是 `power_source_item`：虚拟 profile 纯计算吃柜电；监控 profile 给原版 cycle 供电；网络 1 Hz 补 buffer，不手动充电。
+- 注意：`PowerHelper` 主要处理 `machinery` tag；Phase 0 验证适配器/机架设备是否被商店电力图遍历，避免假设。
 
 ### 4.5 频道
 
-- 建议做成**可配置的“网络负载”**：
-  - 每个网络有 `maxDevices` / `maxLinks` / `maxStorageCells`；
-  - 控制器等级/升级/模块提高上限；
-  - 超限时设备离线/终端报警；
-  - 配置项允许 `infinite`（休闲模式）。
-- 不要照搬 AE2 的 8/32 数字；《深空当铺》的节奏更慢，频道压力应该更轻。
-- 可以加“智能链路”物品/UI，显示每个设备的负载，作为 AE2 智能线缆的替代。
+- **1 个已连接 ME 适配器（虚拟/监控）= 1 通道**；常规线 **8**，致密线 **32**。
+- 机架扫描内部适配器数量申请总量；按槽位顺序 0→7 点亮；没抢到按未插处理（不虚拟/不监控/不服务）。
+- 模板控制器**不占频道**，只计网络负载；电力/物流负载另算。
+- 不做“无限但贵”；频道是硬上限，鼓励加线/加控制器/阵列。
 
-### 4.6 自动合成
+### 4.6 自动合成：合成模板 + 过程模板 + 订单
 
-> **Current decision（见 05）**：自动合成在范围内，包装成“订单系统”（客户订单/配额订单/递归子订单）。MVP 可以先做简单订单，后续加递归；能量可即时完成周期。
-
-- **早期探索建议**：先做“搜索 + 存取 + 物流”，这已经能支撑一个有用的模组。
-- 第二阶段：
-  - 定义模组自己的 `CraftingPattern`（输入/输出/机器类型/时间）；
-  - “样板编码器”机器窗口，把配方写成 `Pattern` 物品；
-  - “合成 CPU”机器窗口，排队 job，保存中间产物；
-  - “装配链接”绑定到具体机器/容器，按 pattern 推输入、收输出；
-  - 产物必须“进入网络”（导入链接/接口）才算完成。
-- 复用游戏 `CraftingRecipe` / `CraftingRecipeManager` 可以省事，但它挂在合成台物品上；你需要为每个机器写适配器，或只支持模组自定义配方。
-- 递归配方/副产物/概率产出先不支持；用“处理样板”模型绕开。
+- 3×3 **Pattern Controller** 存 2×1 模板；5 页 17×10，约 400 个；不占频道。
+- **合成模板**：输出签名 + 配方 + 数量；ME 虚拟产线纯计算；幽灵点击即刻/批量。
+- **过程模板**：输入鱼种/条件 + 输出白名单；**只读**原版屠宰设置，不写设置；常驻按当前设置投喂，加急只选当前设置仍接受的最小鱼；没有合适鱼显示缺少材料。
+- **订单系统**：客户订单/配额订单/递归子订单；合成模板走虚拟产线，过程模板走真实机器 ETA；模板是唯一白名单。
+- 复用 `CraftingRecipe`/`CraftingRecipeManager` 仍要为具体机器写适配器；不假设全局配方表。
+- 递归/副产物/概率产出先按模板显式记录，不做隐式推导。
 
 ### 4.7 进度与平衡
 
-- 网络设备应该**贵**：控制器、存储架、单元、链路都要花 credits/材料；维护费/电费持续消耗。
+- 网络设备应该**贵**：ME Controller、Rack、Disk Drive、Pattern Controller、Power Module、线缆都要花 credits/材料；维护费/电费持续消耗。
 - 用游戏现有进度承载：
-  - 人脉升级解锁“网络控制器/存储架/无线终端”；
+  - 人脉升级解锁“ME Controller/Rack/Disk Drive/Pattern Controller/无线终端”；
   - 夜间地点（废弃数据中心/黑市仓库）提供零件；
   - 掉落表加入网络零件；
-  - 鉴定等级/剧情解锁高级单元；
+  - 鉴定等级/剧情解锁高级磁盘/模板/机架；
   - 纸质手册做教程。
 - 不要让它 trivialize 核心玩法：
-  - 网络只负责“搬运/整理”，不负责“鉴定/真伪/议价”；
+  - 网络负责“存储/物流/订单”，不负责“鉴定/真伪/议价”；
   - 违禁品/赃物仍然会被检查；
-  - 网络存储不自动洗白/隐藏物品（除非专门的升级，且有风险）。
+  - 网络存储不自动洗白/隐藏物品（除非专门的升级，且有风险）；
+  - 水培/RAS 仍按原版周期，网络只做 monitor/维护/报警，不虚拟生物。
 
 ---
 
 ## 5. 推荐架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Network Controller (machine item)        │
-│  tags: NETWORK_ID, NETWORK_ENERGY, NETWORK_LOAD, DEVICE_LIST │
-│  window: battery + link list + diagnostics                  │
-└───────────────┬─────────────────────────────────────────────┘
-                │ owns
-┌───────────────▼─────────────────────────────────────────────┐
-│                      NetworkService                          │
-│  - Registry: device uniqueId → adapter                       │
-│  - Index: ItemKey → entries (location, count, value)         │
-│  - Energy: draw from controller battery                      │
-│  - Load: channels/links limit                                │
-│  - Save: controller tags + modData                           │
-└───────┬───────────────────┬───────────────────┬─────────────┘
-        │                   │                   │
-┌───────▼────────┐  ┌───────▼────────┐  ┌───────▼────────────┐
-│ StorageAdapter │  │ TransferService│  │ CraftingService    │
-│ - containers   │  │ - filters      │  │ - patterns         │
-│ - machines     │  │ - priority     │  │ - job queue        │
-│ - cells        │  │ - schedules    │  │ - machine adapters │
-└───────┬────────┘  └───────┬────────┘  └───────┬────────────┘
-        │                   │                   │
-┌───────▼───────────────────▼───────────────────▼────────────┐
-│                        Terminal UI                          │
-│  CustomUIManager: search, filter, sort, withdraw/deposit    │
-│  Machine windows: storage rack, cell workbench, pattern     │
-└─────────────────────────────────────────────────────────────┘
+```text
+ME Controller (network root)
+ ├─ PoE Cable graph (power / data / scheduling)
+ ├─ Racks (2×4 bays) ── ME Adapter (Virtual / Monitor) ── machines
+ ├─ Disk Drives (2×8) ── Solid / Fluid Disks (virtual index)
+ ├─ Pattern Controller (5×17×10) ── crafting / process patterns
+ ├─ Control Terminal (Storage / Inbox / Daily Plan)
+ └─ Power Module (16 batteries + converter)
 ```
 
 ### 5.1 组件职责
 
 | 组件 | 职责 | 持久化 |
 |---|---|---|
-| `NetworkControllerItem` | 网络 ID、能量、负载、设备列表、UI 入口 | 物品 tag（JSON） |
-| `NetworkService` | 运行时单例；注册/解析设备；建立索引；tick | 从控制器 tag 重建 |
-| `StorageAdapter` | 统一 `GameInventory` / 机器内容窗口 / 存储单元 | 物品本身 |
-| `NetworkIndex` | `ItemKey → List<Entry>`；数量/价值/位置 | 内存缓存，钩子/手动刷新 |
-| `TransferService` | 过滤器、优先级、搬运计划、事务日志 | 规则存在设备 tag/modData |
-| `CraftingService` | pattern 注册、job 队列、中间产物 | job 状态写 modData |
-| `TerminalUI` | 搜索/过滤/排序/存取/诊断 | UI 状态可临时 |
-| `LinkCardItem` | 记录目标 `uniqueId`，写入控制器 | 物品 tag |
-| `StorageCellItem` | 物理/虚拟存储单元 | 物品 contentWindow 或 tag |
-| `StorageRackItem` | 机器窗口，多个单元槽 | 机器窗口物品槽 |
+| `NetworkService` | 重建 PoE 图；扫描机架/适配器；频道分配；dirty/index | 从物品 tag/modData 重建 |
+| `RackService` | 8 bays；机器进出；适配器 profile 识别；1 Hz 对账 | 机架物品 `contentWindow` |
+| `DiskStore` | 固体/液体条目；字节/索引；实例快照；事务；幽灵门控 | 磁盘 tag / 自定义 feature |
+| `PatternIndex` | 合成/过程模板；输出签名去重；5 页扫描 | 模板物品 `itemState` tags |
+| `OrderService` | 客户/配额/递归订单；合成 vs 过程 job；ETA | modData JSON |
+| `MonitorService` | 水培/RAS/屠宰状态；水预算；报警；白名单维护 | 缓存 + dirty；**不写机器设置** |
+| `PowerService` | 每日合同；16 槽；转换器；适配器 buffer | 能源柜 tag/modData |
+| `TerminalUI` | Storage/Inbox/Daily Plan；搜索/取出/即产 | UI 状态临时 |
+| `PatternControllerUI` | 5 tabs；2×1 模板；编码/清除 | 模板物品 |
+| `SaveService` | 先写盘后删；feature 序列化；version/migration | tags/modData |
 
 ### 5.2 Tick 策略
 
 - **不要每帧扫描全店**。`PlayerStore.FindAllItem()` 会遍历多个根容器，物品多时开销大。
+- **1 Hz 只对账带适配器的机器**：虚拟产线清输入/输出；监控托管搬白名单服务槽；不碰活鱼/生长中植物/模块/工具。
 - 触发刷新：
   - `OnGameLoadedNormal`：重建网络；
   - `OnShutterOpenedLate` / `OnShutterClosedEarly`：日边界刷新；
-  - `OnGoingSleepEarly/Late`：结算搬运/合成；
+  - `OnGoingSleepEarly/Late`：结算搬运/合成/电力；
   - 终端打开时：按需刷新；
   - 物品放入/取出时：如果适配器能挂 `onSlotAddItemFunc`/`onSlotRemoveItemFunc`，标记 dirty；
-  - 低频协程（例如每 2–5 秒）只处理 dirty 网络。
+  - 1 Hz 对账 + dirty 标记；不要每帧重建索引。
 - 终端 UI 的列表按需构建，不要每帧重建。
 - 大量设备时，用 `ModHelper.RunInBackground` 做只读索引（注意主线程访问 Unity 对象要 `RunOnMainThread`）。
 
 ### 5.3 存档/读档
 
-- 控制器/设备/单元的物品 tag 是主要持久化位置；`uniqueId` 是引用键。
-- 网络级小数据（网络名、规则、job 队列）可放 `ModHelper.SetModData`（按局保存）。
+- 机架/磁盘/模板/能源柜的物品 tag 是主要持久化位置；`uniqueId` 是引用键。
+- **虚拟磁盘**：`SaveItemNode` 保存 tags，但**不保存 `itemFeatures`**；需要自定义 feature/子物品快照，version + migration + 读回校验。
+- 网络级小数据（网络名、规则、job 队列、monitor 状态）可放 `ModHelper.SetModData`（按局保存）。
 - 读档顺序：
   1. `OnGameLoadedInit`：可以读 modData；
   2. `OnGameLoadedNormal`：物品根容器已恢复，重建网络；
   3. `OnShutterOpenedLate`：日边界校验。
 - 卸载模组：物品会保留但失去行为；不要让存档因缺少模组而崩溃；在描述里说明。
-- 迁移：给网络/单元 tag 加 `schemaVersion`，读档时升级。
+- 迁移：给磁盘/模板/机架 tag 加 `schemaVersion`，读档时升级。
 
 ### 5.4 事务与防丢
 
@@ -633,95 +566,40 @@ MachineHelper.SetupBatterySlot(battery, item);
 ```
 
 - 永远不要 `item.Destroy()` 直到目标确认成功。
+- **入库**：先写盘成功，再从 Inbox 删除；转移中加短暂 lock，防止 Alt 拿走复制/丢失；失败保留原件。
 - 失败时退回玩家背包/前台/垃圾桶，并写日志。
 - 每个 job/transfer 写一条“事务日志”到 modData（小数据），便于排错。
-- 测试：保存/读档、退出重进、禁用模组、物品被顾客拿走、容器被检查/没收、机器被移动。
+- 测试：保存/读档、退出重进、禁用模组、物品被顾客拿走、容器被检查/没收、机器被移动、耐久/实例快照往返。
 
 ### 5.5 命名与本地化
 
-- 游戏已有 **Wild's Network（人脉网络）**；不要把你的系统也叫“网络”，否则中文/英文都混淆。
-- 建议命名：
-  - 中文：**货流网络 / 仓储网络 / 物流矩阵**；
-  - 英文：**Cargo Grid / Storage Grid / Logistics Matrix**；
-  - 避免直接用 “ME Network” 或 “AE” 作为游戏内术语（可在 README 里说明灵感来源）。
+- 仓库/项目名已定：**ProbablyAppliedEnergistics2**；显示名 **可能是应用能源2 / Probably Applied Energistics 2**。
+- 游戏内用 **ME 网络 / ME Controller / ME Adapter** 等术语；注意游戏已有 **Wild's Network（人脉网络）**，UI 里尽量写“ME 网络”避免混淆。
+- 不再使用早期候选（Cargo Grid / Storage Grid / Logistics Matrix）作为主名。
 - 物品名/描述/UI 全部走 `Localization/en.csv` + `zh.csv`；代码里用 key，不写死中文。
 
 ---
 
-## 6. 分阶段路线图（建议）
+## 6. 技术验证与里程碑
 
-> **注意**：这是早期的探索性路线（以“终端扫描器 → 网络控制器 → 物理存储单元”为主）。**当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准**：3×3 控制终端/机架 + 3×3 模板控制器/2×1 模板 + PoE 线缆 + 幽灵门控/Inbox + 订单系统。
+> 当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准（M0–M5）。这里不再维护早期“终端扫描器 → 物理存储单元”路线。
 
+### Phase 0：技术验证清单
 
-> 目标是“先做出一个好玩且不丢存档的 MVP”，再逐步加 AE2 深度。
+1. 确认 Rev13 实际 API 与 `mod-scan`；清单 `<Version>0.46</Version>`。
+2. 3×3 机架 + 8 个 `GameSlotInventory` + `MachineryPanelRow.SetColumns(2)`。
+3. ME Adapter 双 profile 识别；`power_source_item` buffer 从能源柜补电。
+4. 虚拟磁盘：`SaveItemNode` tags + 自定义 `itemFeatures`/子物品快照，读回校验。
+5. Pattern Controller：`MachineryTabs` 5 页 + `GameGridInventory(17,10)`；验证 mod 程序集可直接引用，否则自定义 tab UI。
+6. Ghost/Inbox 事务：先写盘后删、失败保留、Alt/Ctrl 行为。
+7. 1 Hz 对账：只扫适配器机器，量测性能。
+8. Monitor：水培/RAS 槽位、RAS 水预算（`组数 × 成体水需`）、报警。
+9. 过程模板触发：`InitDropOnButcher`/`ButcherDropped` vs `onCycleEndLate` `Run`。
+10. 无滤芯水循环：RAS 脏水 → 液体磁盘 → Atomic Separator → 纯水回灌。
 
-### Phase 0：技术验证（约 1–2 周）
+### 里程碑
 
-- 做一个“终端扫描器”物品：
-  - 激活打开自定义 UI；
-  - 扫描玩家所有容器/机器，列出物品（名称/数量/位置）；
-  - 支持搜索/排序；
-  - 点击“取出”把物品移到玩家背包。
-- 验证：物品工厂、`OnModItemDirectoryInit`、`CustomUIManager`、`PlayerStore.FindAllItem()`、`uniqueId`、读档后仍然工作。
-- **不碰存档结构，不新增存储。**
-
-### Phase 1：MVP 网络（约 2–4 周）
-
-- 网络控制器物品 + 链接卡；
-- 终端：搜索/过滤/存取/“存入全部”；
-- 存储适配器：玩家背包/前后柜台/展示柜/机器窗口；
-- 能量：控制器电池槽/每日维护费；
-- 过滤器/优先级（至少白名单 + 优先级）；
-- 保存/读档；错误处理；F8 日志。
-- 交付：玩家可以把店内多个容器当成一个可搜索仓库。
-
-### Phase 2：存储架与单元（约 3–5 周）
-
-- 存储架机器（多个单元槽）；
-- 物理存储单元（内部真实容器）；
-- 单元优先级/过滤/容量；
-- 存储架 UI（机器窗口）；
-- 与 HopperHelper/Storage Coordinator 共存（不破坏原版）；
-- 可选的“单元升级”（容量/类型）。
-- 交付：真正的“集中存储”，但仍是物理物品。
-
-### Phase 3：物流链接（约 2–4 周）
-
-- 导入/导出链接物品，绑定目标容器/机器；
-- 过滤器、优先级、保留量、顺序；
-- 在日边界/夜间执行搬运；
-- 失败回滚/日志；
-- 与机器输入/输出槽适配。
-- 交付：自动化补货/出货。
-
-### Phase 4：自动合成（约 4–8 周）
-
-- Pattern 物品/编码器；
-- 合成 CPU 机器 + job 队列；
-- 装配链接（绑定机器/容器）；
-- 只支持模组自定义配方或少量现有机器；
-- job 持久化、失败回滚、中间产物；
-- 终端合成状态 UI。
-- 交付：AE2 式“点一下，整条链自动做”。
-
-### Phase 5：网络深度/ polish（约 3–5 周）
-
-- 网络负载/频道（可选）；
-- 无线终端；
-- 子网/多控制器；
-- 网络诊断 UI；
-- 纸质手册教程；
-- 人脉升级/掉落表/夜间地点接入；
-- Steam 创意工坊发布。
-- 交付：完整可玩的 AE2-like 模组。
-
-### Stretch（可选）
-
-- 虚拟字节/类型存储；
-- P2P/量子/空间仓的 re-theme；
-- 自定义故事线/结局（Rev14 beta）；
-- 与酒/养殖/化学等生产链的深度适配；
-- 多人/服务器（如果游戏支持）。
+M0–M5 见 05 §8；不要在本文重复维护两套阶段表。
 
 ---
 
@@ -729,68 +607,70 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
-| 物品丢失/复制 | 存档损坏/玩家差评 | 事务式搬运；先放后删；失败回滚；大量测试 |
-| 读档丢 feature | 物品价值/真伪错乱 | MVP 拆成叶子部件 + 原子物品拒绝；永久强化物品/机器按实例存；部件快照完整序列化 feature，读回校验 |
-| `uniqueId` 引用失效 | 网络设备丢失 | 读档重建；找不到时降级为“未链接”；日志 |
-| 性能 | 终端卡顿/游戏掉帧 | 缓存索引；dirty 标记；低频 tick；限制设备数 |
-| UI 限制 | 终端体验差 | 自定义 UI + 按钮交互；真实槽位用机器窗口 |
+| 物品丢失/复制 | 存档损坏/玩家差评 | 事务式搬运；先写盘后删；失败回滚；大量测试 |
+| 读档丢 feature | 物品价值/真伪错乱 | 拆成叶子部件 + 原子物品拒绝；耐久/可变参数/永久强化物品按实例存；快照完整序列化 feature/子物品，读回校验 |
+| `uniqueId` 引用失效 | 网络设备丢失 | 读档重建；找不到时降级为离线并记录日志 |
+| 性能 | 终端卡顿/游戏掉帧 | 缓存索引；dirty 标记；1 Hz 只扫适配器机器；限制设备数 |
+| UI 内部类不可用 | 机架/模板控制器 UI 做不出来 | Phase 0 验证 `GameSlotInventory`/`MachineryTabs`/`StorageExpansionHelper`；不行就自定义 tab UI |
 | 能力扫描 | 模组被拒绝 | 空 `<Capabilities />`；不用 native/dynamic-code/threads/reflection-external |
 | 游戏更新 | API/行为变化 | 固定 `<GameVersions>`；避免硬依赖；每版测试 |
 | Harmony 脆弱 | 更新后崩溃 | 优先钩子；补丁集中管理；失败降级 |
-| 平衡 | 游戏变无聊 | 成本/维护费/负载限制；不替代鉴定/议价 |
-| 命名冲突 | 玩家混淆 | 用“货流/仓储”，不用“人脉网络” |
+| 平衡 | 游戏变无聊 | 成本/维护费/负载限制；不替代鉴定/议价；不虚拟化水培/RAS |
+| 生物模拟重复 | 鱼/作物数值崩坏 | 生物机器只做 Monitor + 原版 cycle；活鱼/生长中植物不虚拟存 |
+| 过程模板改设置 | 玩家原版屠宰设置被覆盖 | 只读 `AUTO_BUTCHER_*`；不写入/不覆写；缺料明确报错 |
+| 适配器误判 | 确定性机器被当 Monitor 或反之 | 保守识别；未知机器默认 Monitor/只读；UI 显示 profile |
+| 无滤芯水循环过载 | 分离机处理不过来/没电 | Monitor 报分离循环状态；滤芯保留为后备 |
+| 命名冲突 | 玩家混淆 | 游戏内用 “ME 网络”，避免和 Wild's Network 混淆 |
 | 版本错配 | 调用 Rev14 API 崩溃 | 按第 0 节验证；用反射探测；README 写明目标版本 |
 | 第三方仓库许可 | 法律问题 | 不复制 AE2 代码/游戏反编译代码；参考只做链接 |
 
 ---
 
-## 8. GitHub 项目命名与结构建议
+## 8. GitHub 项目与仓库结构
 
-### 8.1 名字候选
+### 8.1 已定项目名
 
-| 仓库名（PascalCase，AE2 用全称） | 含义 | 评价 |
-|---|---|---|
-| **ProbablyAppliedEnergistics2** | “Probably Stolen” + “Applied Energistics 2” | **推荐**：全称 + 2，梗最完整 |
-| **ProbablyAppliedEnergistics2Mod** | 明确是模组 | 搜索友好 |
-| **StolenAppliedEnergistics2** | “Stolen” + “Applied Energistics 2” | 更直接的 AE2 谐音 |
-| **AppliedEmporium2** | “Applied Energistics 2” + 游戏原名 “Deepspace Emporium” | 有历史梗 |
-| **DeepspaceAppliedEnergistics2** | 深空 + 全称 + 2 | 世界观优先 |
-| ~~ProbablyAppliedEnergistics~~ | 没有 2 | 不推荐：容易被当成 AE1 |
-
-**建议**：仓库名 `ProbablyAppliedEnergistics2`，显示名 **可能是应用能源2 / Probably Applied Energistics 2**。副标题写 “An AE2-inspired storage & automation mod for Probably Stolen. Unofficial, not affiliated with Questing Goose Studio, tinyBuild, or the Applied Energistics team.”  
-> GitHub 仓库名大小写不敏感，但会保留显示大小写；用 `ProbablyAppliedEnergistics2` 即可。
+- 仓库：**https://github.com/renchonghan/ProbablyAppliedEnergistics2**
+- 显示名：**可能是应用能源2 / Probably Applied Energistics 2**
+- 代码命名空间：`ProbablyAppliedEnergistics2`（保留完整 AE2 名称，不缩写）
+- 声明：Unofficial fan project. Not affiliated with Questing Goose Studio, tinyBuild, or the Applied Energistics team.
+- 当前状态：research/design only；文档 01–05；源码/资源待建。
+- 命名理由：**Probably Stolen** + **Applied Energistics 2** 的梗；全称 + 2，避免被当成 AE1。仓库名大小写不敏感，但保留显示大小写。
 
 ### 8.2 仓库结构
 
 ```
 ProbablyAppliedEnergistics2/
 ├── README.md
-├── LICENSE                     ← 你的代码用 MIT/Apache-2.0；不要复制 AE2 代码
-├── manifest.xml                ← 模组清单模板
-├── src/
-│   └── ProbablyAppliedEnergistics2/
-│       ├── ProbablyAppliedEnergistics2.csproj
-│       ├── ModEntry.cs
-│       ├── Network/
-│       ├── Items/
-│       ├── UI/
-│       ├── Crafting/
-│       └── Compat/
-├── assets/
-│   ├── Textures/Items/
-│   ├── Textures/Paper/
-│   ├── Sounds/
-│   ├── Localization/
-│   ├── Books/
-│   └── LootTables/
 ├── docs/
 │   ├── 01-ae2-gameplay.md
 │   ├── 02-game-gameplay.md
 │   ├── 03-modding-api-feasibility.md
 │   ├── 04-project-brief.md
 │   └── 05-current-design-decisions.md
+├── src/                        ← planned
+│   └── ProbablyAppliedEnergistics2/
+│       ├── ProbablyAppliedEnergistics2.csproj
+│       ├── ModEntry.cs
+│       ├── Network/
+│       ├── Racks/
+│       ├── Storage/
+│       ├── Patterns/
+│       ├── Power/
+│       ├── Monitor/
+│       ├── UI/
+│       └── Compat/
+├── assets/                     ← planned
+│   ├── Textures/Items/
+│   ├── Textures/Paper/
+│   ├── Sounds/
+│   ├── Localization/
+│   ├── Books/
+│   └── LootTables/
+├── manifest.xml                ← planned；Rev13 写 <Version>0.46</Version>
 ├── tools/
-│   └── build.ps1
+│   └── build.ps1               ← planned
+├── LICENSE                     ← 待定；代码建议 MIT
 └── .gitignore                  ← 排除 ModsDev/reference、bin/obj、游戏 DLL
 ```
 
@@ -801,12 +681,16 @@ ProbablyAppliedEnergistics2/
 
 ### 8.3 发布清单
 
-- `manifest.xml` 的 `ID`/`Name`/`Author`/`ModVersion`/`GameVersions`/`Assemblies`/`Capabilities` 全部正确；
+- `manifest.xml` 的 `ID`/`Name`/`Author`/`ModVersion`/`GameVersions`/`Assemblies`/`Capabilities` 全部正确；Rev13 在 `<GameVersions>` 里写 `<Version>0.46</Version>`，`<ModVersion>` 另写模组版本。
 - 空 `<Capabilities />`（除非确实需要 files/network 等）；
 - 没有未列出的 DLL；
 - `mod-scan` 无 `DEPRECATED`/拒绝项；
 - F8 日志无异常；
 - 新游戏/读档/卸载/重装测试；
+- 机架 UI / 模板控制器 UI / Monitor 页在 Rev13 实际打开；
+- 耐久/可变参数/实例物品快照往返校验；
+- Ghost/Inbox/磁盘事务测试；RAS 爆缸报警/无滤芯水循环测试；
+- 过程模板只读屠宰设置；缺合适鱼提示正确；
 - 中英文本地化；
 - 纸质手册教程；
 - 创意工坊预览图/描述/版本说明；
@@ -814,28 +698,24 @@ ProbablyAppliedEnergistics2/
 
 ---
 
-## 9. 需要你决定的问题（进入计划前）
+## 9. 当前待定问题
 
-> **当前开放问题以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 10 节为准。** 下面是早期探索问题，仅作背景。
+> 已定事项与完整决策记录见 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 10 节；这里只留开放项。
 
-
-1. **范围**：只做“可搜索仓库/终端”（Phase 1），还是一路做到自动合成（Phase 4）？
-2. **存储模型**：物理单元（安全）还是虚拟字节/类型（像 AE2，但高风险）？
-3. **频道**：要不要模拟 AE2 的负载/拓扑限制？还是做成“无限但贵”？
-4. **自动合成**：只支持模组自定义配方，还是适配游戏现有机器/配方？
-5. **美术**：像素风物品图；机器窗口用原版 Machinery 风格还是自定义？
-6. **进度**：用哪个人脉升级/夜间地点/掉落表/剧情节点来解锁？
-7. **版本**：目标 Rev13（当前安装版）还是 Rev14 beta？是否愿意让玩家切 beta？
-8. **语言**：中英双语从第一天做，还是先中文？
-9. **命名**：用 `可能是应用能源2 / Probably Applied Energistics 2` 还是别的？
-10. **发布**：Steam 创意工坊还是 GitHub 手动安装？
+1. **原子分离机模组换算**：效率/质量/速度具体数值；效率应大幅降低耗电，但不能创造物质。
+2. **磁盘强化配方**：每级用哪些游戏材料、是否需要高科技电子/模块。
+3. **模板获取/编码成本**：空白模板配方、编码是否耗电/耗时、模板控制器自身造价。
+4. **Monitor 自动维护阈值/默认开关**：固定阈值基础维护的数值，是否给玩家总开关。
+5. **过程模板加急规则**：按鱼种/重量/年龄/是否收卵的最低条件；不改屠宰设置。
+6. **屠宰触发方式**：`InitDropOnButcher`/`ButcherDropped` 与宿主 `onCycleEndLate` `Run` 哪条是主路径。
+7. **动物笼服务口**：动物笼没有电池槽，MVP 不做，后续加专用服务口或笼子适配方式。
 
 ---
 
 ## 10. 主要来源
 
 - 社区模组规范：`ModsDev/reference/probably-stolen-modding/ModdingGuide.zh-CN.md`、`README.zh-CN.md`、`APIChanges.zh-CN.md`、示例 `Modding/LearnerMod/`
-- 反编译源码：`ModsDev/reference/game-decompiled/`（重点：`ModLoader.cs`、`ModHelper.cs`、`ModHook.cs`、`ModScanner.cs`、`ModManifest.cs`、`CustomUIManager.cs`、`MachineHelper.cs`、`PowerHelper.cs`、`HopperHelper.cs`、`PlayerStore.cs`、`GameItem.cs`、`SaveManager.cs`、`SaveItemNode.cs`、`EmporiumEntry.cs`）
+- 反编译源码：`ModsDev/reference/game-decompiled/`（重点：`ModLoader.cs`、`ModHelper.cs`、`ModHook.cs`、`ModScanner.cs`、`ModManifest.cs`、`CustomUIManager.cs`、`MachineHelper.cs`、`PowerHelper.cs`、`HopperHelper.cs`、`PlayerStore.cs`、`GameItem.cs`、`SaveManager.cs`、`SaveItemNode.cs`、`EmporiumEntry.cs`、`StorageExpansionHelper.cs`、`MachineryTabs.cs`、`MachineHydroponic.cs`、`MachineRAS.cs`、`MachineAutoButcher.cs`、`AquacultureHelper.cs`、`FoodItemHelper.cs`、`DurabilityHelper.cs`）
 - AE2 官方 guidebook/源码：`ModsDev/reference/applied-energistics-2/`
 - 本地化表：`ModsDev/reference/localization/loc_en.json`、`loc_zh.json`
 - 物品目录：`ModsDev/reference/item-catalog.md`
