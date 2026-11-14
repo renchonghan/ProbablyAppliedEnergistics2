@@ -9,7 +9,7 @@
 >
 > **Current design note（2026-11-14）**：本文是 API/可行性调查，不是最终设计。当前设计决议见 [`05-current-design-decisions.md`](05-current-design-decisions.md)。本文中“无电缆/纯逻辑链接”“只做物理存储”“MVP 不做自动合成”等表述是探索性选项，已被 05 覆盖：
 > - **电缆**：1×1 PoE 线缆物品，负责电 + 数据 + 物流调度，不运物品；
-> - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化物品（如无限电池）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：确定性机器 = 虚拟产线（纯计算），水培/RAS/宿主屠宰机 = 监控托管（原版 cycle + 白名单物流 + 报警）；
+> - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化/耐久/可变参数物品（如无限电池、滤芯、工具）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：确定性机器 = 虚拟产线（纯计算），水培/RAS/宿主屠宰机 = 监控托管（原版 cycle + 白名单物流 + 报警）；
 > - **自动合成**：订单系统在范围内（客户订单/配额订单/递归子订单），能量可即时完成周期。
 > - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；活鱼/鱼苗/生长中植物不虚拟存储。
 
@@ -394,7 +394,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Storage Bus | 容器适配器 | 逻辑链接到一个容器，让网络索引它；不移动物品 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置）；订单系统按模板生产；虚拟产线纯计算，监控托管走真机器 | 高 |
-| 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Monitor profile**：原版 cycle 照跑，网络只监控/供电/白名单物流；RAS 水预算 `Σ 组数 × 成体水需` 报警；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
+| 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Monitor profile**：原版 cycle 照跑，网络只监控/供电/白名单物流；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→原子分离机→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成虚拟周期；过程模板按真实机器 ETA 排产 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -452,7 +452,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.2 存储模型：物理 vs 虚拟
 
-> **Current decision（见 05）**：3×3 控制终端 + Disk Drive/磁盘；Storage 页是虚拟库存视图，Inbox 页是真实容器页；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；幽灵只由模板命中生成；复杂物品拆成叶子，原子/密封物品拒绝。
+> **Current decision（见 05）**：3×3 控制终端 + Disk Drive/磁盘；Storage 页是虚拟库存视图，Inbox 页是真实容器页；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；幽灵只由模板命中生成；复杂物品拆成叶子，原子/密封物品拒绝；耐久/可变参数/永久强化物品按实例存，不合并。
 
 
 
@@ -499,7 +499,7 @@ MachineHelper.SetupBatterySlot(battery, item);
   - 没有原生拖放：用按钮/点击；如果必须拖放，只能用机器窗口的真实物品槽。
 - **存储架/驱动器**：机器窗口，`GameGridInventory` 放存储单元；`MachineHelper.Panel`。
 - **模板控制器/合成 CPU**：机器窗口 + `MachineryTabs`（5 页，每页 `GameGridInventory(17,10)`）；参考 `StorageExpansionHelper`/`storage_bay_large`；模板 2×1。风险：这些是游戏内部公有类，Phase 0 要验证 mod 程序集能直接引用；不行就自定义 5 页 tab UI。
-- **监控页**：水培/RAS 只读概况 + 报警（水预算/废物/滤芯/饲料/电力）；不做复杂控制台，手动设置回原版机器窗口。
+- **监控页**：水培/RAS 只读概况 + 报警（水预算/废物/过滤或分离循环/饲料/电力）；不做复杂控制台，手动设置回原版机器窗口。
 - **网络诊断**：自定义 UI 列表，显示设备、链接、负载、能量、错误。
 
 ### 4.4 能量
