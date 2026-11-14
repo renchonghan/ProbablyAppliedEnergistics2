@@ -384,15 +384,15 @@ MachineHelper.SetupBatterySlot(battery, item);
 |---|---|---|---|
 | ME 网络 | 无原生对应 | **3×3 机架（内部 2×4 槽）+ 3×3 控制终端 + 网络图**（`uniqueId`/端口），不是世界方块 | 中 |
 | 线缆/致密线缆 | 无世界网格 | **1×1 PoE 线缆物品**，物理占格；电 + 数据 + 调度；不运物品 | 低-中 |
-| 频道 | 无原生对应 | 可选的“网络负载/端口/电力预算”上限；不做 AE2 频道 1:1 | 低（若可选） |
+| 频道 | 无原生对应 | **1 个已连接 ME 适配器 = 1 通道**；常规 8 / 致密 32；模板控制器不占频道 | 中 |
 | 能量（AE） | `PowerHelper` 的 kW/kJ + 电源物品 | ME 能源柜每天付账后充一次；电流转换器设输入功率；机器用 ME 适配器标记为虚拟机，纯计算吃柜电 | 中 |
 | 存储单元（字节/类型） | 物品实例 + 容器 | **3×3 控制终端 + Disk Drive/磁盘**：Storage 虚拟视图 + Inbox 真实页；磁盘 512 索引/65,535 字节 | 高 |
 | Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架（内部 2×4）+ 8 万能槽**；控制终端 = 容器/终端 | 中 |
-| Terminal | 自定义 UI / 机器窗口 | 控制终端 Storage 页：搜索/取出/即产；Inbox 页真实容器；幽灵物品锁 0 库存 | 中 |
+| Terminal | 自定义 UI / 机器窗口 | 控制终端 Storage 页：搜索/取出/即产；Inbox 页真实容器；0 库存仅有模板命中的输出显示幽灵 | 中 |
 | Import/Export Bus | HopperHelper 的点对点物流 | **网络导入/导出功能**（控制终端配置），绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
 | Storage Bus | 容器适配器 | 逻辑链接到一个容器，让网络索引它；不移动物品 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
-| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` | **订单系统/生产调度**（控制终端配置）；ME 虚拟机纯计算，产物回盘 | 高 |
+| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；模板绑定输出+配方；订单系统按模板生产；ME 虚拟机纯计算，产物回盘 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成周期 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -450,7 +450,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.2 存储模型：物理 vs 虚拟
 
-> **Current decision（见 05）**：3×3 控制终端 + Disk Drive/磁盘；Storage 页是虚拟库存视图，Inbox 页是真实容器页；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；幽灵占位锁 0 库存；复杂物品拆成叶子，原子/密封物品拒绝。
+> **Current decision（见 05）**：3×3 控制终端 + Disk Drive/磁盘；Storage 页是虚拟库存视图，Inbox 页是真实容器页；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；幽灵只由模板命中生成；复杂物品拆成叶子，原子/密封物品拒绝。
 
 
 
@@ -486,7 +486,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.3 UI：终端用自定义 UI，槽位用机器窗口
 
-> **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页（原生拖放/快捷移动）；0 库存用锁定的幽灵物品，不生成 0 个真实物品。
+> **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页（原生拖放/快捷移动）；0 库存只有模板命中才用锁定的幽灵物品，不生成 0 个真实物品；无模板耗尽即删除条目。
 
 
 - **终端**：自定义 UI 最适合“搜索/过滤/排序/列表/按钮”。用 `AddInput` + `BeginScrollFlexible` + `AddButton`/`AddImage` 构建。
@@ -496,7 +496,7 @@ MachineHelper.SetupBatterySlot(battery, item);
   - 存入：扫描玩家背包，按过滤器存入网络；或提供“存入全部”按钮。
   - 没有原生拖放：用按钮/点击；如果必须拖放，只能用机器窗口的真实物品槽。
 - **存储架/驱动器**：机器窗口，`GameGridInventory` 放存储单元；`MachineHelper.Panel`。
-- **样板编码/合成 CPU**：机器窗口 + `MachineryTabs`/`MachineryProgressBar`/`MachineryButton`。
+- **模板控制器/合成 CPU**：机器窗口 + `MachineryTabs`（5 页，每页 `GameGridInventory(17,10)`）；参考 `StorageExpansionHelper`/`storage_bay_large`；模板 2×1。风险：这些是游戏内部公有类，Phase 0 要验证 mod 程序集能直接引用；不行就自定义 5 页 tab UI。
 - **网络诊断**：自定义 UI 列表，显示设备、链接、负载、能量、错误。
 
 ### 4.4 能量
@@ -647,7 +647,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ## 6. 分阶段路线图（建议）
 
-> **注意**：这是早期的探索性路线（以“终端扫描器 → 网络控制器 → 物理存储单元”为主）。**当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准**：3×3 控制终端/机架 + PoE 线缆 + 幽灵物品/Inbox + 订单系统。
+> **注意**：这是早期的探索性路线（以“终端扫描器 → 网络控制器 → 物理存储单元”为主）。**当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准**：3×3 控制终端/机架 + 3×3 模板控制器/2×1 模板 + PoE 线缆 + 幽灵门控/Inbox + 订单系统。
 
 
 > 目标是“先做出一个好玩且不丢存档的 MVP”，再逐步加 AE2 深度。
