@@ -31,7 +31,7 @@
 - **Power Module 3×3**：能源输入/PSU/供能矩阵；接受外部电力/电源物品/PoE。
 - **Cable 1×1**：PoE 干线；电 + 数据 + 物流调度；不运物品；可剪线/过载。
 - **Bay modules 1×1**：Storage / Import / Export / Production / Security。
-- **Fluid Guns**：吸液枪/加液枪，1×1 工具，可放进工具箱用快捷键装备。
+- **Fluid Transfer Gun / 移液枪**：3×2 工具（同打标机），吸/加双模式；可放进工具箱用快捷键装备。
 
 ## 交互
 
