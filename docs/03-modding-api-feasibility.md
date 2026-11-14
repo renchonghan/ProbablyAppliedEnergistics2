@@ -389,10 +389,10 @@ MachineHelper.SetupBatterySlot(battery, item);
 | 存储单元（字节/类型） | 物品实例 + 容器 | **3×3 控制终端 + Disk Drive/磁盘**：Storage 虚拟视图 + Inbox 真实页；磁盘 512 索引/65,535 字节 | 高 |
 | Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架（内部 2×4）+ 8 万能槽**；控制终端 = 容器/终端 | 中 |
 | Terminal | 自定义 UI / 机器窗口 | 控制终端 Storage 页：搜索/取出/即产；Inbox 页真实容器；幽灵物品锁 0 库存 | 中 |
-| Import/Export Bus | HopperHelper 的点对点物流 | **1×1 模块**，绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
+| Import/Export Bus | HopperHelper 的点对点物流 | **网络导入/导出功能**（控制终端配置），绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
 | Storage Bus | 容器适配器 | 逻辑链接到一个容器，让网络索引它；不移动物品 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
-| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` | **Production 模块 + 订单系统**；把输入推到绑定机器，产物回网 | 高 |
+| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` | **订单系统/生产调度**（控制终端配置）；ME 虚拟机纯计算，产物回盘 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成周期 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
