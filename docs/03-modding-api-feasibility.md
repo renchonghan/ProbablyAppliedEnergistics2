@@ -9,7 +9,7 @@
 >
 > **Current design note（2026-11-14）**：本文是 API/可行性调查，不是最终设计。当前设计决议见 [`05-current-design-decisions.md`](05-current-design-decisions.md)。本文中“无电缆/纯逻辑链接”“只做物理存储”“MVP 不做自动合成”等表述是探索性选项，已被 05 覆盖：
 > - **电缆**：1×1 PoE 线缆物品，负责电 + 数据 + 物流调度，不运物品；
-> - **存储**：3×3 控制面板容器 + Storage/Inbox 分页；MVP 用真实物品槽 + 自动补货，不做序列化；
+> - **存储**：3×3 控制终端容器 + Storage/Inbox 分页；MVP 用真实物品槽 + 自动补货，不做序列化；
 > - **自动合成**：订单系统在范围内（客户订单/配额订单/递归子订单），能量可即时完成周期。
 
 ---
@@ -382,20 +382,20 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 | AE2 概念 | 《深空当铺》对应物 | 推荐实现 | 难度/风险 |
 |---|---|---|---|
-| ME 网络 | 无原生对应 | **3×3 机架/控制面板 + 网络图**（`uniqueId`/端口），不是世界方块 | 中 |
+| ME 网络 | 无原生对应 | **3×3 机架/控制终端 + 网络图**（`uniqueId`/端口），不是世界方块 | 中 |
 | 线缆/致密线缆 | 无世界网格 | **1×1 PoE 线缆物品**，物理占格；电 + 数据 + 调度；不运物品 | 低-中 |
 | 频道 | 无原生对应 | 可选的“网络负载/端口/电力预算”上限；不做 AE2 频道 1:1 | 低（若可选） |
 | 能量（AE） | `PowerHelper` 的 kW/kJ + 电源物品 | 机架 Power 模块/供能矩阵 + 网络电荷；用 `power_source_item` 充能 | 中 |
-| 存储单元（字节/类型） | 物品实例 + 容器 | **3×3 控制面板容器**：Storage 虚拟视图 + Inbox 真实页；MVP 真实物品槽 + 自动补货 | 高 |
-| Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架 + 9 bay 模块**；控制面板 = 容器/终端 | 中 |
-| Terminal | 自定义 UI / 机器窗口 | 控制面板 Storage 页：搜索/取出/即产；Inbox 页真实容器；幽灵物品锁 0 库存 | 中 |
+| 存储单元（字节/类型） | 物品实例 + 容器 | **3×3 控制终端容器**：Storage 虚拟视图 + Inbox 真实页；MVP 真实物品槽 + 自动补货 | 高 |
+| Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架 + 9 bay 模块**；控制终端 = 容器/终端 | 中 |
+| Terminal | 自定义 UI / 机器窗口 | 控制终端 Storage 页：搜索/取出/即产；Inbox 页真实容器；幽灵物品锁 0 库存 | 中 |
 | Import/Export Bus | HopperHelper 的点对点物流 | **1×1 模块**，绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
 | Storage Bus | 容器适配器 | 逻辑链接到一个容器，让网络索引它；不移动物品 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` | **Production 模块 + 订单系统**；把输入推到绑定机器，产物回网 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成周期 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
-| Subnetworks | 多网络 | 多个机架阵列/控制面板；PoE 端口/网络 ID 隔离 | 中 |
+| Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
 | P2P / Quantum / Spatial | 无原生对应 | 不做 1:1；后期可做跨区链路/传送仓，但不建议 MVP | 高 |
 | 陨石/certus/处理器进度 | 游戏材料/机器/掉落/夜间地点 | 用现有材料（芯片/模块/能量单元）+ 掉落表 + 夜间地点 + 人脉升级 + 纸质手册 | 中 |
 | 智能线缆/Network Tool | 自定义 UI | 网络诊断面板：设备列表、负载、能量、链接状态 | 低 |
@@ -404,7 +404,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 1. **没有世界方块网格**  
    AE2 的线缆/频道/空间布局是玩法核心；《深空当铺》的机器是“物品”，没有可放置的方块世界。  
-   **当前做法**：用 3×3 机架/控制面板 + 1×1 PoE 线缆的**真实占格物品**，在基础网格/机房页里做“机房平面图”；网络图是逻辑的，线缆负责拓扑/供电/数据，不运物品。
+   **当前做法**：用 3×3 机架/控制终端 + 1×1 PoE 线缆的**真实占格物品**，在基础网格/机房页里做“机房平面图”；网络图是逻辑的，线缆负责拓扑/供电/数据，不运物品。
 
 2. **物品是唯一实例，不是可堆叠 ID**  
    AE2 的“类型”是物品 ID；这里同名物品可能状态/真伪/内容不同。存储系统必须决定：
@@ -450,7 +450,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.2 存储模型：物理 vs 虚拟
 
-> **Current decision（见 05）**：3×3 控制面板容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页；MVP 底层用真实物品槽 + 自动补货 + 幽灵占位，不做序列化。
+> **Current decision（见 05）**：3×3 控制终端容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页；MVP 底层用真实物品槽 + 自动补货 + 幽灵占位，不做序列化。
 
 
 
@@ -486,7 +486,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.3 UI：终端用自定义 UI，槽位用机器窗口
 
-> **Current decision（见 05）**：控制面板是 3×3 容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页（原生拖放/快捷移动）；0 库存用锁定的幽灵物品，不生成 0 个真实物品。
+> **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页是虚拟库存视图，Inbox 页是真实容器页（原生拖放/快捷移动）；0 库存用锁定的幽灵物品，不生成 0 个真实物品。
 
 
 - **终端**：自定义 UI 最适合“搜索/过滤/排序/列表/按钮”。用 `AddInput` + `BeginScrollFlexible` + `AddButton`/`AddImage` 构建。
@@ -647,7 +647,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ## 6. 分阶段路线图（建议）
 
-> **注意**：这是早期的探索性路线（以“终端扫描器 → 网络控制器 → 物理存储单元”为主）。**当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准**：3×3 控制面板/机架 + PoE 线缆 + 幽灵物品/Inbox + 订单系统。
+> **注意**：这是早期的探索性路线（以“终端扫描器 → 网络控制器 → 物理存储单元”为主）。**当前里程碑以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 8 节为准**：3×3 控制终端/机架 + PoE 线缆 + 幽灵物品/Inbox + 订单系统。
 
 
 > 目标是“先做出一个好玩且不丢存档的 MVP”，再逐步加 AE2 深度。
