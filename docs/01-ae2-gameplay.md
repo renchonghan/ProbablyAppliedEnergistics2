@@ -367,6 +367,7 @@ charged certus + 红石 + 下界石英 + 水 → fluix
 - **子网** → 后期可选多网络；不做 P2P/量子/空间 1:1。
 - **能量** → 3×3 Power Module（16 电池 + 1 转换器；255 → 65,535 kJ）；电流转换器输入每日 kJ；ME 适配器作为 `power_source_item` 从能源柜补电。
 - **生物/农业** → 不虚拟化；水培/RAS 保持原版 cycle，网络只做 Monitor/白名单维护/报警；无滤芯水循环用 **ME 分馏阵列**。
+- **水/化学** → **ME 分馏阵列 + ME 化学灌注阵列**：4×3 固定槽子机、机械臂/滴管/核心；只是把原版水/化学链装盒，不替代配方、温度、纯度、评级。
 - **进度** → 用游戏现有材料、机器、掉落表、夜间地点、纸质手册、人脉升级承载，而不是陨石/certus。
 
 > 具体映射、API 可行性、Phase 0 清单与风险见 [`03-modding-api-feasibility.md`](03-modding-api-feasibility.md)；权威设计见 [`05-current-design-decisions.md`](05-current-design-decisions.md)。

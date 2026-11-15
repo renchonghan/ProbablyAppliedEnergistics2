@@ -19,8 +19,9 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 | [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent/mortgage, customers, trading, appraisal, contraband/inspection, items/containers, storage bays, machines/power, afterhours, progression, story/endings |
 | [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API inventory, Rev13 vs Rev14 differences, AE2 → game mapping, current storage/UI/energy/network architecture, Phase 0 checklist, risks, repo structure |
 | [04 — Project brief](docs/04-project-brief.md) | One-page current scope, MVP, non-goals, milestones |
-| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks (2×4 internal bays = 8 universal slots) / 3×3 controller / terminal / pattern controller (five 17×10 tabs) / power module / disk drive, endpoint-first ME adapter (Endpoint/Read-only; Planner read-only), crafting/processing patterns, 2×1 patterns, PoE cables, disk-based virtual storage, template-gated ghost items, hydroponic/RAS monitors with overstock alarms, Inbox page, daily plan/autocrafting, atomic separator, 3×2 fluid transfer gun, milestones, technical hooks |
+| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks (2×4 internal bays = 8 universal slots) / 3×3 controller / terminal / pattern controller (five 17×10 tabs) / power module / disk drive, endpoint-first ME adapter (Endpoint/Read-only; Planner read-only), crafting/processing patterns, 2×1 patterns, PoE cables, disk-based virtual storage, template-gated ghost items, ME Fractionation Array (4×3 fixed slots), ME Chemical Infusion Array (4×3 fixed slots), hydroponic/RAS monitors with overstock alarms, Inbox page, daily plan/autocrafting, 3×2 fluid transfer gun, milestones, technical hooks |
 | [06 — Vanilla production atlas](docs/06-vanilla-production-chains.md) | Machine atlas, water/food/chem/aquaculture/husbandry/gun/wine chains, crafting/economy, night cycle, and the “network is a bus, not a factory” constraints |
+| [07 — Vanilla item atlas](docs/07-item-atlas.md) | Item directory counts, measuring containers, key machines/modules/tools, and “use what the game already has” design notes |
 
 ## Key findings
 
@@ -43,7 +44,10 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 │   ├── 03-modding-api-feasibility.md
 │   ├── 04-project-brief.md
 │   ├── 05-current-design-decisions.md
-│   └── 06-vanilla-production-chains.md
+│   ├── 06-vanilla-production-chains.md
+│   └── 07-item-atlas.md
+├── tools/
+│   └── build_item_catalog.py
 └── .gitignore
 ```
 
@@ -58,6 +62,8 @@ The investigation used local-only reference material that is **not committed**:
 - Decompiled `Assembly-CSharp.dll` (`reference/game-decompiled/`, local research only)
 - Game localization tables (`reference/localization/`, local research only)
 - Generated item catalog and class index (`reference/`)
+- Detailed item catalog with names/descriptions/tags (`reference/item-catalog-detailed.md`, `reference/item-catalog.json`; contains localization text, do not publish)
+- Local decompile of the FaucetFilter Workshop mod for config/UI study (`reference/faucet-filter-decompiled/`; study only, do not copy code/assets)
 
 Paths like `ModsDev/reference/...` in the docs refer to that local cache. Do not publish the decompiled game code or localization tables. If you reuse AE2 code, comply with LGPL-3.0; a clean-room implementation is recommended.
 

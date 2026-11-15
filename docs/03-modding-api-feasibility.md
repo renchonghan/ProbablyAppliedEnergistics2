@@ -396,7 +396,8 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置，Endpoint only）；全部走 Endpoint 真机器 ETA；模板是唯一白名单 | 高 |
 | 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Endpoint + Monitor view**：原版 cycle 照跑，网络只监控/供电/白名单角色；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→ME 分馏阵列→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
-| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` | **ME Fractionation Array 3×3**：固定 UV/M1/M2 + E1/P1/P2 + E2/P3/P4；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏/物质守恒；化学液体模式只做前处理/脱溶剂/提纯，最终仍需加热板+Chem Finisher | 高 |
+| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` / `aquascan` | **ME Fractionation Array 3×3 / 4×3 内槽**：滤芯+UV+扫描+核心 · 收集/蒸发/蒸发/收集 · 净水×4；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏/物质守恒；化学液体模式只做前处理/脱溶剂/提纯，最终仍需加热板+Chem Finisher | 高 |
+| 化学成型 | 原版 `blender` / `heating_plate` / `chem_finisher` / `module_extractor` / `1ml_dropper` / `5ml_dropper` | **ME Chemical Infusion Array 3×3 / 4×3 内槽**：机械臂+1ml/5ml滴管+ME核心 · 搅拌×2/加热×2 · 化学成型×4；基础机械臂 100 单损耗、高级永久；滴管精确计量；上游仍需分馏阵列 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成虚拟周期；过程模板按真实机器 ETA 排产 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -604,6 +605,7 @@ ME Controller (network root)
 10. Monitor：水培/RAS 槽位、RAS 水预算（`组数 × 成体水需`）、报警。
 11. 过程模板触发：`InitDropOnButcher`/`ButcherDropped` vs `onCycleEndLate` `Run`。
 12. 无滤芯水循环：RAS 脏水 → 液体磁盘 → ME Fractionation Array → 纯水回灌。
+13. 化学灌注：4×3 固定槽；机械臂基础 100 单损耗/高级永久；1ml/5ml 滴管计量；Chem Finisher 评级不变。
 
 ### 里程碑
 
@@ -644,7 +646,7 @@ M0–M5 见 05 §8；不要在本文重复维护两套阶段表。
 - 显示名：**可能是应用能源2 / Probably Applied Energistics 2**
 - 代码命名空间：`ProbablyAppliedEnergistics2`（保留完整 AE2 名称，不缩写）
 - 声明：Unofficial fan project. Not affiliated with Questing Goose Studio, tinyBuild, or the Applied Energistics team.
-- 当前状态：research/design only；文档 01–06；源码/资源待建。
+- 当前状态：research/design only；文档 01–07；源码/资源待建。
 - 命名理由：**Probably Stolen** + **Applied Energistics 2** 的梗；全称 + 2，避免被当成 AE1。仓库名大小写不敏感，但保留显示大小写。
 
 ### 8.2 仓库结构
@@ -658,7 +660,8 @@ ProbablyAppliedEnergistics2/
 │   ├── 03-modding-api-feasibility.md
 │   ├── 04-project-brief.md
 │   ├── 05-current-design-decisions.md
-│   └── 06-vanilla-production-chains.md
+│   ├── 06-vanilla-production-chains.md
+│   └── 07-item-atlas.md
 ├── src/                        ← planned
 │   └── ProbablyAppliedEnergistics2/
 │       ├── ProbablyAppliedEnergistics2.csproj
@@ -697,6 +700,7 @@ ProbablyAppliedEnergistics2/
 - 没有未列出的 DLL；
 - `mod-scan` 无 `DEPRECATED`/拒绝项；
 - F8 日志无异常；
+- `ModConfig` 设置项分组/默认值/保存/读档/即时生效测试；
 - 新游戏/读档/卸载/重装测试；
 - 机架 UI / 模板控制器 UI / Monitor 页在 Rev13 实际打开；
 - 耐久/可变参数/实例物品快照往返校验；
@@ -721,7 +725,8 @@ ProbablyAppliedEnergistics2/
 6. **屠宰触发方式**：`InitDropOnButcher`/`ButcherDropped` 与宿主 `onCycleEndLate` `Run` 哪条是主路径。
 7. **动物笼服务口**：动物笼没有电池槽，MVP 不做，后续加专用服务口或笼子适配方式。
 8. **Container Endpoint（Storage Bus 等价）**：是否用 1×1 Storage Link 让网络索引真实容器（不搬物品）；MVP 不做，后续评估。
-9. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分”已从分馏阵列移出；梦尘/奥克莫吸走液体化学链，不是固相；另开设备或删掉待定。
+9. **ME 化学灌注阵列换算**：机械臂基础 100 单损耗/高级永久；1ml/5ml 滴管计量；2 搅拌 + 2 加热 + 4 成型；核心增益；每单 kJ 待定。
+10. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分”已从分馏阵列移出；梦尘/奥克莫吸走液体化学链，不是固相；另开设备或删掉待定。
 
 ---
 
