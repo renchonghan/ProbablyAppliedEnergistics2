@@ -68,6 +68,7 @@
 - **蒸发器**：6 power/cycle；每 cycle 最多蒸发 300,000 uL × 性能；**回收率 = 蒸发比例 × 当前质量加成%**——没有质量模块几乎收不到蒸馏物。溶剂回收模块只回收酒精，其他蒸发物排掉。这是“质量模块决定产率”的典型。
 - **化学完成器**：无电池；选中配方、放液体容器、按输出；要求体积足够且**干燥（无水和）**；按化学模块数量注入 12/6/3/1/0% 物理杂质，然后评级。配方：dream_dust 2000uL dream extract、nightmare_dust 4000uL、caffeine_pill 5000uL、zyanide_pill 600uL、birth_control_pill 100 contraceptive、fanta_pill 500 fanta、pink_alt_injector 4000 nomore。instant。
 - **纯度等级**：active/total ×100；lab pure ≥99、pharma ≥90、near pharma ≥80、street ≥60、cut ≥45、junk ≥30、starch 0。Dream/Nightmare dust 和部分替身是违禁品。
+- **梦尘/奥克莫吸不是分馏器产物**：原版 Dream Dust 是 Dream Cap 萃取 → 加热/蒸发 → Chem Finisher；Oxymore 还要还原剂/脂合剂 45–55°C 反应。模组的 ME 分馏阵列只能做液体前处理/脱溶剂/提纯，最终仍要加热板和化学完成器。
 - **测序仪不是毒品机**：`desequencer` 是**门禁卡伪造器**（10 power、33 进度、芯片+空白卡 → 对应 keycard），产违禁品。别把它当化学链。
 - **医疗**：没有独立医疗制造机；`chem_finisher` 产药片/粉尘/注射剂，纯度就是品质；绷带/血袋/手术工具等是预制品/掉落/交易。
 

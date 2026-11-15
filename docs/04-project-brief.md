@@ -43,7 +43,7 @@
 - **Planner**：订单只读规划，算材料/`cycles`/`currentKJ`/ETA；不产出、不能替代流水线。
 - **端点发现**：机器 item 上 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → 原版机器 profile → 手动映射 → 反射兜底；反射不猜语义。
 - **Monitor**：Endpoint 的概况页，不是 profile；水培/RAS 显示水/营养/饲料/过滤或分离循环/鱼群/ETA/电/警报，固定阈值自动维护；RAS 按“组数 × 成体水需”预测爆缸。
-- **ME Fractionation Array 3×3 / ME 分馏阵列**：固定 9 槽（布局 UV/M1/M2 · E1/P1/P2 · E2/P3/P4）；1 UV + 4 净水器 + 2 蒸发器 + 2 水分收集器；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏，物质守恒，杂质进液体磁盘。
+- **ME Fractionation Array 3×3 / ME 分馏阵列**：固定 9 槽（布局 UV/M1/M2 · E1/P1/P2 · E2/P3/P4）；1 UV + 4 净水器 + 2 蒸发器 + 2 水分收集器；子机自动虚拟电池 max 65,535 + 严格边界；水/液体分馏（含药品前处理），物质守恒；成品药仍需加热板 + Chem Finisher。
 - **Cable 1×1**：PoE 干线；电 + 数据 + 物流调度；不运物品；可剪线/过载。
 - **频道**：1 个已连接 ME 适配器（Endpoint/Read-only）= 1 通道；常规 8 / 致密 32；机架统计内部适配器数量申请，按槽位顺序点亮；没抢到频道的适配器按未插处理。
 - **Fluid Transfer Gun / 移液枪**：3×2 工具（同打标机），吸/加双模式；可放进工具箱用快捷键装备。

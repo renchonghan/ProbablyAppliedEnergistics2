@@ -396,7 +396,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置，Endpoint only）；全部走 Endpoint 真机器 ETA；模板是唯一白名单 | 高 |
 | 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Endpoint + Monitor view**：原版 cycle 照跑，网络只监控/供电/白名单角色；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→ME 分馏阵列→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
-| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` | **ME Fractionation Array 3×3**：固定 UV/M1/M2 + E1/P1/P2 + E2/P3/P4；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏/物质守恒 | 高 |
+| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` | **ME Fractionation Array 3×3**：固定 UV/M1/M2 + E1/P1/P2 + E2/P3/P4；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏/物质守恒；化学液体模式只做前处理/脱溶剂/提纯，最终仍需加热板+Chem Finisher | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成虚拟周期；过程模板按真实机器 ETA 排产 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -721,7 +721,7 @@ ProbablyAppliedEnergistics2/
 6. **屠宰触发方式**：`InitDropOnButcher`/`ButcherDropped` 与宿主 `onCycleEndLate` `Run` 哪条是主路径。
 7. **动物笼服务口**：动物笼没有电池槽，MVP 不做，后续加专用服务口或笼子适配方式。
 8. **Container Endpoint（Storage Bus 等价）**：是否用 1×1 Storage Link 让网络索引真实容器（不搬物品）；MVP 不做，后续评估。
-9. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分（奥克莫西/梦尘）”已从分馏阵列移出；另开设备或删掉待定。
+9. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分”已从分馏阵列移出；梦尘/奥克莫吸走液体化学链，不是固相；另开设备或删掉待定。
 
 ---
 
