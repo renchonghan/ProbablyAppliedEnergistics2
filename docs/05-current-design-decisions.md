@@ -1,7 +1,7 @@
 # 当前设计决议（Current Design Decisions）
 
 > **Status:** authoritative current direction, 2026-11-14.
-> 本文是权威设计；`03` 已同步为当前 API/架构摘要，`04` 是一页纸，`01` 是 AE2 参考，`02` 是游戏参考。
+> 本文是权威设计；`03` 已同步为当前 API/架构摘要，`04` 是一页纸，`01` 是 AE2 参考，`02` 是游戏参考，`06` 是原版机器/生产链底图。
 
 ---
 
@@ -55,10 +55,10 @@
    玩家只负责下单；拆配方、备料、排队、生产、送货由机房完成。  
    AE2 的递归工单可以做，但要藏在“订单卡”后面。
 
-7. **强兼：通用端点优先，不做 proxy 机器**
-   AE2 的强兼来自“任何 inventory 都能接”，不是“每台机器写一个代理”。
-   默认走 **Machine Endpoint**：role/tag/manual mapping，真实机器跑自己的 cycle，网络只 push/pull/power/monitor。
-   **Virtual** 只是白名单确定性机器的可选快路径；**Read-only** 是兜底。反射只用于枚举/诊断，不用来猜语义。
+7. **AE 是总线，不是工厂**
+   网络负责存储、寻址、搬运、调度、供电、监控；**生产必须由玩家搭建的真实机器/农场/流水线完成**。
+   不做“虚拟产线”凭空出物品；**Planner** 只做只读规划/预测（材料、周期、能耗、ETA），不产出。
+   通用 Endpoint 优先：role/tag/manual mapping，真实机器跑自己的 cycle；Read-only 兜底；反射只用于枚举/诊断。
 
 ---
 
@@ -74,9 +74,9 @@
 - **防套娃**：机架不能塞机架；ME 控制器/控制终端/模板控制器/电力模块/数据转移机/原子分离机不进屋，基础设施保持在机柜阵列外部。
 - 机架就是“扩展机器区”：原版机器塞进去后，**插适配器才被网络供电/喂料/收产物**；没插适配器仍按原版周期运行/手动使用。
 - 机器存进磁盘 = **停机归档**；放回机架也只是“放置架”，除非电池槽插了 **ME 适配器**。
-- **只有插了 ME 适配器、且频道已连接的机架机器才被网络接管**；默认 **Endpoint**，Virtual 可选，Read-only 兜底；Monitor 是 Endpoint 的 UI tab；没插/没频道 = 纯放置/手动。
+- **只有插了 ME 适配器、且频道已连接的机架机器才被网络接管**；默认 **Endpoint**，Read-only 兜底；Monitor 是 Endpoint 的 UI tab；没插/没频道 = 纯放置/手动。
 - 左/右 **PoE 端口**，状态灯；机架有供电预算/负载/维护费。
-- **一个已连接的 ME 适配器（Endpoint/Virtual/Read-only）= 一个通道**；机架扫描内部适配器数量并向线缆申请总量；常规线 8、致密线 32（AE2 原版）。
+- **一个已连接的 ME 适配器（Endpoint/Read-only）= 一个通道**；机架扫描内部适配器数量并向线缆申请总量；常规线 8、致密线 32（AE2 原版）。
 - 相邻 3×3 机架形成 **Rack Array（机柜阵列）**；视觉上连成一排，可以有共享背板/管理加成，但每个机架仍然占 3×3。
 
 ### 3.2 ME 控制器（3×3）+ 控制终端（3×3）
@@ -124,7 +124,7 @@
 > 机架是“机器扩展区”，磁盘不直接插机架；但 **Disk Drive 可以作为组合式机架的一个 bay 整体塞进去**，形成“机架里放驱动器”的组合式机架。  
 > 机架 8 个万能槽只混装**原版机器和 Disk Drive**；没有扩展卡；机器不按形状占位，避免把机架变成华容道。  
 > 导入/导出/生产调度/安防是**控制终端/网络功能**，不是机架扩展卡，不占槽。  
-> 技术上：槽位用 `GameSlotInventory`（单槽容器，不按网格形状检查）；没插适配器的机器按原版周期运行；默认 Endpoint（真实 cycle + 白名单物流）；只有白名单确定性机器可切 Virtual（15 kJ/周期纯计算）；水培/RAS/宿主屠宰机保持 Endpoint。
+> 技术上：槽位用 `GameSlotInventory`（单槽容器，不按网格形状检查）；没插适配器的机器按原版周期运行；默认 Endpoint（真实 cycle + 白名单物流）；不虚拟产线；Planner 只读规划。
 
 ### 3.6 磁盘驱动器（Disk Drive，3×3）
 
@@ -202,7 +202,7 @@
 | **Pattern / 模板** | **2×1** | 空白可叠；编码后记录输出+配方（合成）或输入+原版设置+输出（过程）；放进模板控制器才生效 |
 | **Data Transfer Machine / 数据转移机** | 3×3 | 磁盘对磁盘移动数据；电池供电 |
 | **Atomic Separator / 原子分离机** | 3×3 | 拆液体/纯度物质；效率/质量/速度模组；物质守恒 |
-| **ME Adapter / ME 适配器（一物品三态）** | 1×1 | 插机器电池槽；不可手动充电；Endpoint 默认 / Virtual 可选 / Read-only 兜底；Monitor 是 UI，不是 profile |
+| **ME Adapter / ME 适配器（一物品两态）** | 1×1 | 插机器电池槽；不可手动充电；Endpoint 默认 / Read-only 兜底；Planner 是订单只读规划，不是适配器模式；Monitor 是 UI |
 | **PoE Cable / PoE 线缆** | 1×1 | 电 + 数据 + 调度，不运物品 |
 | **Fluid Transfer Gun / 移液枪** | **3×2 tool** | 吸/加双模式；同打标机尺寸 |
 
@@ -224,8 +224,8 @@
 
 - **1×1**，插机器电池槽；插上 + 频道连接才被网络接管；**1 个适配器 = 1 个通道**。
 - **默认 = Endpoint（真实机器）**：网络只做白名单 push/pull/power/monitor；机器按原版 cycle 跑，**不虚拟、不调用 `onCycleEnd*`、不伪造加工**。
-- **Virtual（可选快路径）**：只有白名单确定性机器 + 注册了 recipe adapter 才能切；夜间按执行时实时读的 `currentKJ`、白天加急 +15 kJ/周期；纯计算、不跑真 cycle；UI 有 `Endpoint / Virtual` 开关，默认 Endpoint。
 - **Read-only（兜底）**：找不到安全输入/输出角色时，只显示状态，不搬物品。
+- **没有 Virtual 产线**：网络不凭空合成物品；**Planner** 是订单系统的只读规划/预测，只算材料/周期/`currentKJ`/ETA，不产出。
 - **Monitor 不是 profile**：水培/RAS/宿主屠宰机都是 Endpoint；Monitor 只是适配器 UI 的一个概况页。
 - **端点发现顺序**：
   1. **显式 tag（机器物品上）**：`ME_ENDPOINT_ROLE_MAP_STRING` 等，用 JSON/字符串把 panel role 或 inventory path 映射到 `input/output/fluid/power/readonly`；其他模组可直接在机器 item 上声明。
@@ -233,7 +233,7 @@
   3. **原版机器 profile**：水培/RAS/Auto Butcher 等已知机器用索引表。
   4. **手动映射**：适配器 UI 列出所有 `GameInventory` 节点，玩家点选角色，存在适配器 tag。
   5. **反射兜底**：只用 `ModReflect`/游戏类型字面反射枚举隐藏 inventory；**不动态拼名称、不猜语义、不直接调用加工函数**。
-- **供电**：适配器本身是 `power_source_item`，从 ME 能源柜补 buffer；Endpoint 给真 cycle 供电，Virtual 用 buffer 过供电检查。
+- **供电**：适配器本身是 `power_source_item`，从 ME 能源柜补 buffer；Endpoint 给真 cycle 供电。
 - **兼容原则**：任何 modded 机器只要 inventory 可达，就能通过 tag/role/manual mapping 接进来；不需要为它写 proxy。AE2 的强兼就是“任何 inventory 都能接”。
 - **宿主屠宰机**：Auto Butcher 没有电池槽，适配器插宿主 RAS/笼子；Endpoint 覆盖宿主 + 屠宰槽；动物笼没有电池槽，MVP 先不做。
 - flavor text：**“ME 适配器。别管它是什么机器，先把 inventory 交出来。”**
@@ -292,7 +292,7 @@
 ### 3.13 过程模板（Processing Pattern）
 
 - 和合成模板同一 **2×1 Pattern** 物品、同一模板控制器页面；编码后显示“过程模板”图标/颜色。
-- **只走 Endpoint**：过程模板不跑 Virtual；加工永远由原版机器完成。
+- **只走 Endpoint**：加工永远由原版机器完成，不存在虚拟加工。
 - **不改屠宰机设置**：`AUTO_BUTCHER_*` 由玩家在原版 UI 设置；网络只读/尊重，**不写入、不临时覆写、不恢复**。模板只记录“投什么鱼 + 输出白名单”。
 - 编码时直接看原版屠宰机 UI 的当前设置；模板只记录输入鱼条件 + 输出白名单，不保存设置快照，只按原版设置判断“这条鱼会不会被加工”。
 - 模板记录：输入鱼种/条件（species/weight/age/roe 等）+ 输出白名单；编码时拖入一条鱼样本记录条件，样本不消耗。
@@ -303,7 +303,7 @@
 - **触发方式 Phase 0 验证**：可能是鱼直接丢到 Auto Butcher 身上（`InitDropOnButcher` / `ButcherDropped`），也可能是宿主 RAS/笼子的 `onCycleEndLate` 自动 `Run`；先按原版路径走，不自己造 cycle。
 - **投喂路径**：按原版可触发方式（直接丢到 Auto Butcher / 放进宿主鱼缸），让原版逻辑决定是否加工；网络不直接调用 `TryButcherFish`、不伪造 cycle。
 - **Endpoint 执行**：适配器只负责把鱼放进可触发位置、把输出格产物拉走；加工永远由原版屠宰机完成。
-- **产物收集**：屠宰机输出格是 10×10，产物单一（肉/鱼卵/皮/尸体）；1 Hz 对账递归扫描宿主屠宰机的内部库存，只收输出白名单，绝不收输入鱼/屠宰机本体/工具。
+- **产物收集**：屠宰机输出格是 10×10，产物单一（肉/鱼卵/皮/尸体）；**10 tps** 对账递归扫描宿主屠宰机的内部库存，只收输出白名单，绝不收输入鱼/屠宰机本体/工具。
 - 过程模板的输出也可以出现在 Storage 幽灵列表；点幽灵 = 排 process job，不是瞬间出肉。
 - 多个屠宰机/模板按输出签名去重，沿用 3.12 规则。
 
@@ -346,7 +346,7 @@
   - 0 且模板命中：灰色 `0` 幽灵条目，条目仍然可点；
   - 0 且没有模板：**条目不显示**，搜索也搜不到。
 - 有货：左键取 1，右键取一组。
-- 0（仅模板命中）：合成模板在 **Virtual 加急扣 15 kJ/周期即刻生产**、在 **Endpoint 排产/加急**；过程模板只能 Endpoint 排产；显示 ETA/缺料。
+- 0（仅模板命中）：合成模板/过程模板都只能排 **Endpoint** job；白天加急 **15 kJ/周期 + 基础电力**，夜间排产 **0 加急费**；显示 ETA/缺料。
 - 液体按**纯度/品质分行**，不要把不同纯度的水混成一个数字。
 - 搜索/过滤/排序是 UI 层；底层是磁盘条目（虚拟存储），不是真实物品槽。
 - 物品入库 = 拆解计划 + 快照 → 写盘 → 校验 → 删除原物品；库存归零时删除磁盘条目并释放索引/字节；只有模板命中的输出由模板重新生成幽灵。
@@ -365,7 +365,7 @@
 - **枪/带插件**：拆成枪身、枪管、弹匣、枪托、下挂、特殊槽等；每个部件独立条目。
 - **容器/背包**：内容物递归入库；空容器作为独立条目（或按规则返回）。
 - **液体容器**：液体进液体磁盘，空容器进固体磁盘；混合液先是一个“混合液”条目，原子分离机再拆。
-- **机器**：不拆，整机 Instance 存；存进去不工作、不耗电；要成为**Endpoint/Virtual/Read-only**必须放进机架 + 插 **ME 适配器** + 频道连接。
+- **机器**：不拆，整机 Instance 存；存进去不工作、不耗电；要成为**Endpoint/Read-only**必须放进机架 + 插 **ME 适配器** + 频道连接。
 - **原子/密封/任务物品**：拒绝虚拟存储，提示“请用真实盒子/容器”，不要强行 snapshot。
 - **卡死模组**：带 `MODULE_STUCK_TAG` 的机器入库时自动拆模组，**从 ME 能源柜扣 200KJ**；柜内不足 200KJ 就拒绝，防免费拆 bug。
 - **不想拆**：把东西放真实盒子/背包，不要扔进 Inbox；虚拟存储不保留复杂物品树。
@@ -378,7 +378,7 @@
 - **没有模板的物品：库存耗尽后从 Storage 页消失**；磁盘条目删除，释放索引/字节，不显示 0，也不能点击即产。玩家要恢复它，必须重新放入实物或先编码模板。
 - 幽灵**不占磁盘索引/字节**，不是磁盘条目，也不是 0 个的真实物品；它由模板索引实时生成。
 - `mayInventoryRemoveItemFunc = false`，任何快捷键都拿不走；不会卡上柜台。
-- 点击幽灵 → 合成模板在 Virtual 加急扣 15 kJ/周期即刻生产、在 Endpoint 排 process job；过程模板只能 Endpoint 排 job（真机器执行，显示 ETA/缺料）；成功 → 写入磁盘条目（或生成真实物品，如果该条目是真实槽模式）；失败 → 幽灵继续保留，tooltip 报错。
+- 点击幽灵 → 合成/过程模板都排 **Endpoint** process job；白天加急 15 kJ/周期 + 基础电力，夜间 0 加急费；真机器执行，显示 ETA/缺料；成功 → 写入磁盘条目（或生成真实物品，如果该条目是真实槽模式）；失败 → 幽灵继续保留，tooltip 报错。
 - 模板被取出/控制器离线 → 幽灵立即消失；库存 > 0 的条目仍然正常显示，等它耗尽后再按模板规则决定是否消失。
 - 幽灵物品不进 Inbox；它只存在于 Storage 页的“0 库存 + 模板命中”条目。
 - 幽灵按**输出签名**精确匹配：纯度/品质/关键 feature 不同的产物不会互相点亮。
@@ -404,8 +404,8 @@
 - 监听取出/消耗 → 触发补货；**只有模板控制器里存在对应输出的条目才允许补货**。
 - 没有模板：库存耗尽就消失，不自动生产；要恢复自动补货，先把物品编码成模板。
 - 补货必须：查模板 → 检查配方 → 检查原料 → 检查能量 → 成功才写入磁盘条目。
-- **合成模板补货（夜间批量）**：按周期算；**0 加急费**；Virtual 扣 `cycles × currentKJ`（执行时实时读机器当前能耗，含强化/模块）；Endpoint 机器正常 cycle 电力照扣，可免费调用 `BoostMachine` 推进周期。
-- **合成模板补货（白天加急）**：每周期额外 **15 kJ**，和涡轮加速器同价；基础电力照扣；Virtual 直接完成；Endpoint 用 15 kJ 触发 `BoostMachine`；能源柜不足 → 不加急/排队。
+- **合成模板补货（夜间批量）**：按周期算；**0 加急费**；Endpoint 机器正常 cycle 电力照扣（执行时实时读 `currentKJ`，含强化/模块），可免费调用 `BoostMachine` 推进周期。
+- **合成模板补货（白天加急）**：每周期额外 **15 kJ**，和涡轮加速器同价；基础电力照扣；Endpoint 用 15 kJ 触发 `BoostMachine`；能源柜不足 → 不加急/排队。
 - **过程模板的补货是排产**：检查真机器/ME 适配器/合适鱼/水/饲料，排 process job；不是瞬间补，也不是凭空出肉。
 - 补货模式：
   - **能量即产（白天加急）**：15 kJ/周期 + 基础电力，立刻补；
@@ -437,7 +437,7 @@
 - **任何耐久/可变参数/永久强化 tag**（`DURABILITY_TAG`、`MAX_DURABILITY_TAG`、`DURABILITY_FAKE_TAG`、`HAND_CONDITION`、`FRESH_FOOD_TAG`/`FRESHNESS_TAG`、`CHARGE_*`、`power_source_item_energy`、`HYPERTECH_BATTERY_*`、`MACHINE_*`、`MODULE_*`、`TURBO_*`、`CURRENT_CHARGE_TAG` 等）→ **Instance**，一件一个索引。
 - **新鲜度是固定值**：`FRESHNESS_TAG` 在生成时定死，不随时间腐烂；但不同值仍是不同实例（荧光莓/Bloomberry 酿酒要用），不能合并。
 - **判断口径**：玩家会关心“这一件和那一件不一样”的，就不合并；耐久、磨损、充能、新鲜度（固定值）、纯度、品质、内容物、机器状态都算。
-- **机器**：不拆，整机 Instance 存；存进去不工作、不耗电；要成为**Endpoint/Virtual/Read-only**必须放进**机架** + 插 **ME 适配器** + 频道连接。快照包含电池槽/模块；快照失败就拒绝。
+- **机器**：不拆，整机 Instance 存；存进去不工作、不耗电；要成为**Endpoint/Read-only**必须放进**机架** + 插 **ME 适配器** + 频道连接。快照包含电池槽/模块；快照失败就拒绝。
 - **生物边界**：活鱼、鱼苗、生长中的植物 **Refuse**；干种子（带基因）、鱼卵、鱼获/肉可以按 Instance 存；水按液体条目/纯度存。
 - `Instance` 条目保存：`identifier`、`unitCount`、全部 tag、`itemFeatures`、`itemTypes`、`unitValue`、`lateUnitValue`、`shape/state`、子物品（仅机器）等；数值用精确类型，不截断。
 - **入库校验**：序列化 → 反序列化成临时物品 → 对比实例签名（所有 tag/feature/数值/子物品）；不一致就拒绝，原件留在 Inbox，提示“请用真实盒子”。
@@ -465,7 +465,7 @@
 
 - **一键下单**：有料就做，没料就自动拆子订单。
 - **夜间排产**：按周期算；**0 加急费**；基础电力照扣；Endpoint 可免费调用 `BoostMachine` 推进周期。
-- **加急（合成模板）**：每周期额外 **15 kJ**，和涡轮加速器同价；基础电力照扣；Virtual 直接完成；Endpoint 用 15 kJ 触发一次 `MachineTurboBoosterAdv.BoostMachine()`；过程模板只切投喂选择（最低可接受输入），**不改屠宰设置**，按真实机器排产。
+- **加急（合成模板）**：每周期额外 **15 kJ**，和涡轮加速器同价；基础电力照扣；Endpoint 用 15 kJ 触发一次 `MachineTurboBoosterAdv.BoostMachine()`；过程模板只切投喂选择（最低可接受输入），**不改屠宰设置**，按真实机器排产。
 - **失败**：明确告诉玩家缺模板、缺机器/服务、缺合适鱼、缺原料、缺电、缺配方。
 
 ### 5.2 四层结构
@@ -479,8 +479,8 @@
 3. **订单（Job）**
    数量、期限、优先级；递归展开依赖；中间产物放网络里；子订单可并行。缺模板的中间产物直接报错，不偷偷合成。
 
-4. **执行器（Endpoint / Virtual / 供能矩阵）**
-   Endpoint 按模板把输入 push 到真实机器、等 cycle、pull 输出；Virtual 按合成模板纯计算（15 kJ/周期）；供能矩阵只加速虚拟计算；没有 endpoint/机器/合适输入就排队或报错。
+4. **执行器（Endpoint / Planner / 供能矩阵）**
+   Endpoint 按模板把输入 push 到真实机器、等 cycle、pull 输出；Planner 只读规划/预测，不产出；供能矩阵/涡轮加速器只加速真实机器；没有 endpoint/机器/合适输入就排队或报错。
 
 ### 5.3 配额生产 = 定时订单
 
@@ -493,9 +493,9 @@
 
 ### 5.4 实时性
 
-- 商店侧没有实时机器 tick；**Endpoint** 让真机器跑 cycle，**Virtual** 纯计算；夜间批量 **0 加急费**，白天加急 **15 kJ/周期**。
+- 商店侧没有实时机器 tick；**所有生产都由 Endpoint 真机器跑 cycle**；Planner 只读预测，不出物品；夜间批量 **0 加急费**，白天加急 **15 kJ/周期**。
 - `MachineTurboBoosterAdv.BoostMachine()` 只用于真实机器/兼容路径；夜间批量可免费调用它推进周期；供能矩阵不虚拟生物过程。
-- 合成模板在 **Virtual** → `cycles × currentKJ` 纯计算（执行时实时读机器当前能耗）；在 **Endpoint** → push 输入、等真实机器 cycle、pull 输出。
+- 合成模板 → **Endpoint** push 输入、等真实机器 cycle、pull 输出；Planner 只算 `cycles` / `currentKJ` / ETA。
 - **夜间排产**：`cycles = ceil(需求量 / 每周期产量)`；0 加急费，基础电力照扣；例：4 铁锭若需 2 周期，每周期 3 矿石 + 2 kJ → 6 矿石 + 4 kJ，0 加急费。
 - **白天加急**：每周期额外 **15 kJ** + 基础电力；上例再加 2×15 = 30 kJ。
 - 过程模板只能走 **Endpoint**，等真实机器完成/收割，不能加急成虚拟产物。
@@ -505,37 +505,37 @@
 ### 5.5 每日计划（Daily Plan）
 
 - 控制终端独立一页 **Daily Plan**：设定明天每种货的目标库存（水 30、餐 20、零件 10……）。
-- Daily Plan 只能选**模板里已有的输出**；夜间批量 0 加急费、基础电力照扣（实时 `cycleKJ`）；白天加急 15 kJ/周期 + 基础电力；合成模板 Virtual 算、Endpoint 排产；过程模板 Endpoint 排产；没有模板先编码，否则计划报错。
+- Daily Plan 只能选**模板里已有的输出**；夜间批量 0 加急费、基础电力照扣（实时 `cycleKJ`）；白天加急 15 kJ/周期 + 基础电力；合成/过程模板都排 Endpoint；没有模板先编码，否则计划报错。
 - 闭店/夜间按计划补货/生产；早上报告完成/缺料/缺电。
 - 客户采购、枪匠订单可以复用同一个 job 引擎，但**MVP 先做每日基础备料**，一次性客户订单后期再加。
 - 后期可用 Harmony 在客户议价界面加“一键下单”按钮，但不是 MVP 主入口。
 
-### 5.6 Endpoint + Virtual + Read-only + 1 Hz 对账
+### 5.6 Endpoint + Read-only + Planner + 10 tps 对账
 
 - **只有插了 ME 适配器且频道已连接的机架机器才被网络接管**；没插/没频道 = 纯放置/手动。
 - **Endpoint（默认）**：按 role/tag/manual mapping push 输入、pull 输出、供电、monitor；**机器跑原版 cycle**；不模拟、不伪造加工。
-- **Virtual（可选）**：白名单确定性机器 + recipe adapter；纯计算；夜间 `currentKJ`（实时读机器能耗）、白天加急 **+15 kJ/周期**；不跑真 cycle；不做虚拟副本。
 - **Read-only（兜底）**：找不到安全输入/输出角色时只显示状态，不搬物品。
+- **Planner（只读）**：订单系统的规划/预测，计算材料、`cycles`、`currentKJ`、ETA；**不产出物品**。
 - **Monitor 是 Endpoint 的一个 tab**：水培/RAS/宿主屠宰机；显示水预算/报警；不推进生长。
-- **1 秒对账一次**，只扫带适配器的机器：
+- **10 tps 对账**（每秒 10 次，MC 20 tps 的一半），只扫带适配器的机器：
   - Endpoint：只动白名单角色（输入/输出/水/饲料/滤芯（可选）/屠宰输出）；活鱼、生长中植物、模块、工具不动；
-  - Virtual：生产输入/输出槽 → 直接挪磁盘；
   - Read-only：不动物品；
   - 不删除、不吞物品；未知机器布局只写日志。
-- **过程模板只能 Endpoint**：1 Hz 只负责喂料/收货/监控，不调用 `onCycleEnd*`、不模拟生长；没有合适输入 → 缺料。
-- 同步机器属性：强化模组、配置 tag、效率/质量/速度等；玩家改机器配置后，下次 1 Hz 同步生效。
+- **性能**：10 tps 只扫已连接适配器；按 tick 预算分批/round-robin；缓存 + dirty；管理器/监视器 UI 可 1 Hz 刷新，数据源仍是 10 tps；不要全店 `FindAllItem`。
+- **所有模板只能 Endpoint**：10 tps 只负责喂料/收货/监控，不调用 `onCycleEnd*`、不模拟生长；没有合适输入 → 缺料。
+- 同步机器属性：强化模组、配置 tag、效率/质量/速度等；玩家改机器配置后，下次扫描同步生效。
 
 ---
 
 ## 6. 网络 / PoE
 
 - **PoE 干线** = 电 + 数据 + 物流调度命令；**没有物品包**。
-- **频道按 AE2 原版**：**1 个已连接的 ME 适配器（Endpoint/Virtual/Read-only）= 1 个通道**；常规线 8，致密线 32。
+- **频道按 AE2 原版**：**1 个已连接的 ME 适配器（Endpoint/Read-only）= 1 个通道**；常规线 8，致密线 32。
   不做轮椅：8/32 台适配器机器封顶，超过就加线/加控制器，不能一根线无限挂。
 - **模板控制器不占频道**：频道只按 ME 适配器计数；模板控制器计入网络负载，不参与 8/32 分配。
 - **机架申请逻辑**：
   1. 扫描机架内部机器；
-  2. 统计插了 ME 适配器的机器数量（Endpoint/Virtual/Read-only 都算）；
+  2. 统计插了 ME 适配器的机器数量（Endpoint/Read-only 都算）；
   3. 向线缆申请**这个总量**的频道；
   4. 按槽位顺序（0 → 7）分配：前 N 个连接，后面的标记“无频道”；
   5. 没抢到频道的适配器**按没插适配器处理**：不 endpoint、不 virtual、不 monitor，纯放置/离线。
@@ -557,7 +557,7 @@
 - 不做 AE2 的字节/类型 1:1 复刻（频道按原版：常规 8 / 致密 32）；
 - 不做“没有模板也能自动生产/幽灵”的便利模式；**模板就是白名单**；
 - **不虚拟化水培/RAS/屠宰**；活鱼、鱼苗、生长中植物不做虚拟存储；monitor 不替玩家决定种/养/杀；
-- 不做任意机器的 proxy 模拟；默认 Endpoint，Virtual 只给白名单；
+- 不做任意机器的 proxy 模拟；默认 Endpoint，不虚拟产线；
 - 不靠反射猜输入/输出语义；反射只做兜底枚举/诊断；
 - 不做复杂 Farm 控制台；水培/RAS 只有概况 + 固定维护 + 报警；
 - MVP **做虚拟化 + 入库拆解**：复杂物品拆成部件/内容物；原子/密封/任务物品拒绝，用真实盒子；
@@ -575,7 +575,7 @@
 | **M0** | 3×3 控制终端容器 + 3×3 模板控制器 + 启动磁盘 + Storage/Inbox 页 + 2×1 模板 + 幽灵门控 + 事务式虚拟化/补货 | 能入库/取出、只有模板输出在 0 库存显示幽灵、读档不丢物品 |
 | **M1** | 3×3 机架（内部 2×4，8 个万能槽，能塞原版机器）+ 3×3 ME 控制器 + ME 适配器（Endpoint：role/tag/manual mapping + 供电） | 机器能被 push/pull/供电；modded 机器能手动映射输入/输出 |
 | **M2** | 3×3 电力模块 + 电流转换器 + 1×1 PoE 线缆 + 3×3 Disk Drive + 固体/液体磁盘 + 数据转移机 + 阵列/容量 | 能接线、剪线、看负载；每日充一次电；磁盘能换/迁移 |
-| **M3** | Virtual（可选，白名单确定性机器 + recipe adapter）+ 网络导入/导出 + 配额生产 + 即时补货 + 移液枪 + 原子分离机 + 水培/RAS Monitor（基础维护/爆缸报警） | 白名单机器能切虚拟产线；Endpoint 农场能自动维护；RAS 鱼苗过多会提前报警 |
+| **M3** | Planner（只读规划/ETA）+ 网络导入/导出 + 配额生产 + 即时补货 + 移液枪 + 原子分离机 + 水培/RAS Monitor（基础维护/爆缸报警） | Planner 能算材料/周期/能耗/ETA 但不产出；Endpoint 农场能自动维护；RAS 鱼苗过多会提前报警 |
 | **M4** | 订单系统 + 递归子订单 + 客户订单 + 过程模板/屠宰常驻/加急 | 客户要鱼/肉，点一下，按当前屠宰设置或加急最低投喂排产；缺合适鱼明确提示 |
 | **M5** | 手册/教程/平衡/创意工坊 | 玩家能自己搭机柜阵列和黑灯工厂 |
 
@@ -590,24 +590,24 @@
 | 控制终端容器 | `item.SetContentWindow(window)`；Storage/Inbox 分页 |
 | 模板控制器 UI | `MachineryTabs` 5 页；每页 `GameGridInventory(17,10).SetMachineryStyle()`；参考 `StorageExpansionHelper`/`storage_bay_large`；页名 12 字符；Phase 0 验证 mod 程序集可直接引用，否则自定义 5 页 tab UI |
 | 模板物品（2×1） | 空白可叠；编码后 Instance；数据写 `itemState` tags（`SaveItemNode` 保存 tags，不保存 `itemFeatures`）：合成=输出签名/recipeId/qty/version；过程=输入条件/输出白名单（不存屠宰设置）；读回再解析 |
-| 模板门控 | Storage 页 0 库存只查模板索引；命中生成 ghost，未命中删除条目；合成 ghost 在 Virtual 即刻、在 Endpoint 排产；过程 ghost 排 process job；ghost 不占索引/字节；缓存 + dirty |
+| 模板门控 | Storage 页 0 库存只查模板索引；命中生成 ghost，未命中删除条目；合成/过程 ghost 都排 Endpoint job（夜间 0 费 / 白天 +15 kJ/周期）；ghost 不占索引/字节；缓存 + dirty |
 | 幽灵物品锁定（仅模板） | `mayInventoryRemoveItemFunc = false`；`MayRemove()` 会被 quick-move 检查 |
 | 取出/上交易区 | Inbox 真实物品走原生 quick-move；Storage 虚拟条目调用 `ModHelper.MoveItemToFrontCounter` / `GraphUtils.TryAcceptOnce` |
 | Inbox 自动转移 | `onSlotAddItemFunc` / 轮询；快照 → 写盘 → 校验 → 删除；短暂 lock；失败保留 |
 | 磁盘快照 | 完整序列化**叶子 item + feature**；复杂物品先拆成叶子，原子物品拒绝；`SaveItemNode` 不含 `itemFeatures`，需自定义；version + migration + 读回校验 |
 | 实例分类/校验 | 扫描永久强化 tag/feature（如 `HYPERTECH_BATTERY_*`）→ Instance/Refuse；实例签名 + 序列化往返校验；不合并 |
 | 自动补货 | 查模板 → 检查配方/原料/能量；成功才写入磁盘条目；无模板不补；过程模板只排产 |
-| 即时完成周期 | 夜间批量 **0 加急费**、基础电力照扣（实时 `cycleKJ`）；白天加急 **15 kJ/周期 + 基础电力**；Virtual 算完 / Endpoint `BoostMachine`；过程模板只能 Endpoint |
+| 即时完成周期 | 夜间批量 **0 加急费**、基础电力照扣（实时 `cycleKJ`）；白天加急 **15 kJ/周期 + 基础电力**；Endpoint `BoostMachine`；所有模板 Endpoint |
 | 能量存储 | `power_source_item` / kJ 标签；ME 能源柜/供能矩阵 |
 | 电流转换器 | 1×1 专用插槽；16 电池槽 + 1 转换器槽；`mayInventoryAddItemFunc` 分流；输入每日 kJ；柜容量 255 → 65,535；普通电池在线备电 + 日结单块最多 1/4；无限电池无实时容量，日结读一次日输出额度（基础12/+10，无上限，不缓存）；一次性/违禁品不充电；16 槽前到后不均摊；电力预测按实时 `cycleKJ` 先验算 demand；日结顺序：无限电池→转换器补差→柜→电池(1/4/满)；实际电网抽取次日账单；复用 `CurrentConverterHelper` rate/服务 |
-| ME 适配器（一物品三态） | 1×1 电池槽；Endpoint 默认 / Virtual 可选 / Read-only 兜底；`power_source_item` buffer 由能源柜补；1 适配器=1 通道；Phase 0 验证供电/角色发现 |
+| ME 适配器（一物品两态） | 1×1 电池槽；Endpoint 默认 / Read-only 兜底；`power_source_item` buffer 由能源柜补；1 适配器=1 通道；Phase 0 验证供电/角色发现 |
 | Endpoint 发现 | 机器 item 上 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow.Panels`/role → 原版机器 profile → 手动映射 → `ModReflect`/字面反射兜底；反射不猜语义、不调用加工 |
 | Monitor（Endpoint UI） | `MachineHydroponic.GetWaterSlot/GetInputSlot/GetOutputSlot`；`MachineRAS.GetWaterSlot/GetDispenserSlot/GetFilterGrid/GetTankGrid`；`AquacultureHelper` 鱼 tag；`currentNeed` / `adultNeed = Σ groupCount × adult stage water`；水箱 12L；报警爆缸/空间/废物/过滤或分离循环/饲料/电力 |
 | 过程模板（Processing Pattern） | 2×1 Pattern；**Endpoint only**；**只读** `AUTO_BUTCHER_*` 设置，不写入/不覆写；只记录输入鱼条件 + 输出白名单；常驻=按当前设置投喂；加急=选当前设置仍接受的最小鱼；触发路径 Phase 0 验证（直接 drop / `onCycleEndLate` Run）；输出格 10×10 递归扫描 |
-| 订单队列 | modData（JSON）+ 协程/日边界 tick；合成模板可 Endpoint/Virtual（夜间 0 加急费 / 白天 +15 kJ/周期），过程模板 Endpoint；job 带 ETA；不要每帧全店扫描 |
-| Virtual（可选） | 只给白名单确定性机器 + recipe adapter；夜间 `currentKJ`（实时读机器能耗）、白天加急 +15 kJ/周期；1 Hz 清输入/输出；按合成模板纯计算，不跑真机器 cycle；未知布局只记录 |
-| Endpoint 对账 | 1 Hz 只动白名单角色（输入/输出/水/饲料/滤芯（可选）/屠宰输出）；不调用 `onCycleEnd*`；不推进生长；Monitor 状态/水预算/报警缓存 + dirty |
-| 频道分配 | 扫描机架 → 统计已插 ME 适配器（Endpoint/Virtual/Read-only 都算）→ 申请总量 → 槽位顺序 0→7 连接；超出容量按未插适配器处理 |
+| 订单队列 | modData（JSON）+ 协程/日边界 tick；合成/过程模板都 Endpoint（夜间 0 加急费 / 白天 +15 kJ/周期）；job 带 ETA；不要每帧全店扫描 |
+| Planner（只读） | 计算材料/`cycles`/`currentKJ`/ETA；不产出、不跑 cycle；缓存 + dirty |
+| Endpoint 对账 | **10 tps** 只动白名单角色（输入/输出/水/饲料/滤芯（可选）/屠宰输出）；按 tick 预算分批/round-robin；不调用 `onCycleEnd*`；不推进生长；Monitor 状态/水预算/报警缓存 + dirty |
+| 频道分配 | 扫描机架 → 统计已插 ME 适配器（Endpoint/Read-only 都算）→ 申请总量 → 槽位顺序 0→7 连接；超出容量按未插适配器处理 |
 | 模板索引 | 按输出签名聚合多控制器；重复项按槽位顺序取第一个有效模板；缓存 + dirty；模板控制器不占频道 |
 | 网络索引 | 缓存 + dirty 标记；按 `uniqueId` 引用机架/驱动器/磁盘 |
 | 存档安全 | 先写盘后删；失败回滚；不生成 0 个真实物品；卸载降级 |
@@ -626,17 +626,19 @@
 - **模板控制器**：3×3 网络设备，放在机柜阵列外部；UI 参考原版储藏区（扩建）/ `Storage Bay (Extended)`，**5 个大页**、每页 **17×10**、页名 12 字符；模板 **2×1**；每页 80 个、5 页约 400 个；不占频道、计网络负载；可多个，按输出签名去重。
 - **模板**：2×1 真实物品；空白可叠，编码后 Instance；合成模板绑定输出签名+配方，过程模板绑定输入条件+输出白名单（只读原版设置）；样本不消耗；无配方/不可复现的实例输出拒绝编码；**模板是幽灵/补货/订单/自动生产的唯一白名单**。
 - **幽灵门控**：只有模板命中的输出在库存 0 时显示幽灵；无模板的物品耗尽后删除条目、释放索引/字节；幽灵不占磁盘索引/字节。
-- **频道**：**1 个已连接的 ME 适配器（虚拟/监控）= 1 通道**；常规线 **8**，致密线 **32**；机架扫描内部适配器数量并申请总量，按槽位顺序点亮；没抢到的适配器按未插处理，不虚拟/不监控/不服务。
+- **频道**：**1 个已连接的 ME 适配器（Endpoint/Read-only）= 1 通道**；常规线 **8**，致密线 **32**；机架扫描内部适配器数量并申请总量，按槽位顺序点亮；没抢到的适配器按未插处理，不 endpoint/不 monitor/不 service。
 - **字节**：固体 **8 个 = 1 byte**；液体 **100 ml = 1 byte**；磁盘从 **16 索引 / 256 bytes** 起，材料强化到 **512 / 65,535**，升级保留内容。
 - **入库拆解**：枪/容器等复杂物品自动拆；机器整机 Instance 存但停机；原子/密封/任务物品拒绝，用真实盒子。
 - **实例规则**：任何耐久/可变参数（`DURABILITY_*`、`HAND_CONDITION`、`FRESH_FOOD_TAG`/`FRESHNESS_TAG`（固定值，不腐烂）、充能、纯度、内容物、机器状态）→ **Instance**，一件一索引；只有无状态白名单耗材合并；索引满了换盘/真实盒子，不合并。
 - **卡死模组**：带 `MODULE_STUCK_TAG` 的机器入库时自动拆模组，**从 ME 能源柜扣 200KJ**；柜内不足就拒绝；预付费/电流转换器实现 Phase 0 确认。
-- **ME 适配器（一物品三态）**：1×1 电池槽；插上+频道连接才接管；**1 适配器 = 1 通道**。默认 **Endpoint**：按 tag/role/manual mapping push 输入、pull 输出、供电、monitor，机器跑原版 cycle；**Virtual** 只给白名单确定性机器 + recipe adapter，纯计算；**Read-only** 兜底。Monitor 是 Endpoint 的 UI tab，不是 profile。
+- **ME 适配器（一物品两态）**：1×1 电池槽；插上+频道连接才接管；**1 适配器 = 1 通道**。默认 **Endpoint**：按 tag/role/manual mapping push 输入、pull 输出、供电、monitor，机器跑原版 cycle；**Read-only** 兜底。Monitor 是 Endpoint 的 UI tab，不是 profile；**Planner** 是订单只读规划，不产出。
 - **Endpoint 发现顺序**：机器 item 上 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow.Panels`/role → 原版机器 profile → 手动映射 → `ModReflect`/字面反射兜底；反射不猜语义、不调用加工。
+- **扫描 10 tps**：每秒 10 次（MC 20 tps 的一半），只扫已连接适配器机器；按 tick 预算分批/round-robin；缓存 + dirty；Monitor UI 可 1 Hz 刷新。
 - **强兼原则**：任何 inventory 可达的机器都能接；容器端点后续评估；不写 per-machine proxy；tag/role/manual mapping 优先。
-- **合成模板**：输出签名 + 配方 + 数量；Virtual 夜间 `currentKJ`（执行时实时读机器能耗）、白天加急 +15 kJ/周期；Endpoint 走真实机器 ETA；幽灵点击按可用执行器选择。
+- **合成模板**：输出签名 + 配方 + 数量；Endpoint 走真实机器，夜间 0 加急费、白天 +15 kJ/周期；幽灵点击排 Endpoint job。
+- **Planner**：只读规划/预测，算材料/`cycles`/`currentKJ`/ETA；不产出，不能替代流水线。
 - **能耗不固化**：配方卡只存配方/输入/输出/时间；`cycleKJ` 每次执行/预测实时读机器（含强化/模块）；机器升级后立即生效，不需要迁移模板。
-- **合成模板排产/加急**：夜间批量 **0 加急费**、基础电力照扣（实时 `cycleKJ`）、可免费 `BoostMachine`；白天加急 **15 kJ/周期 + 基础电力**（涡轮同价）；Virtual 算完 / Endpoint 触发 `BoostMachine`；能源柜不足则排队/不补。
+- **合成模板排产/加急**：夜间批量 **0 加急费**、基础电力照扣（实时 `cycleKJ`）、可免费 `BoostMachine`；白天加急 **15 kJ/周期 + 基础电力**（涡轮同价）；Endpoint 触发 `BoostMachine`；能源柜不足则排队/不补。
 - **过程模板**：2×1 Pattern 的第二种编码；**Endpoint only**；**不改屠宰机设置**，只读/尊重 `AUTO_BUTCHER_*`；只决定投什么鱼 + 输出白名单；常驻=按当前设置投喂，加急=选当前设置仍接受的最小鱼；缺合适鱼直接显示缺少材料；输出格递归扫描，只收白名单；过程模板输出幽灵点击=排产，不是瞬间出肉。
 - **Monitor**：Endpoint 的概况页，不是 profile；水培/RAS 不做复杂控制台；固定阈值自动维护；宿主屠宰机设置只读，不改写；RAS 水预算 = 当前/成体预测（鱼苗按 `组数 × 成体水需`），报警爆缸、空间、废物、过滤/分离循环、饲料、电力、鱼卵；红警报可排减密单。
 - **无滤芯水循环**：RAS 脏水/废物抽到液体磁盘 → 原子分离机 → 纯水回灌；物质守恒，滤芯可选；只有分离机离线/没电才需要滤芯。
@@ -663,4 +665,4 @@
 
 > **玩家负责下单，机房负责干活。**
 > 3×3 机架阵列是浪漫，PoE 线缆是浪漫，虚拟搬运是性能，订单系统是自由。
-> 会算的当产线，会活的当监控；能接的都接进来，别问它是什么机器。
+> 网络是总线，流水线自己搭；能接的都接进来，别问它是什么机器。

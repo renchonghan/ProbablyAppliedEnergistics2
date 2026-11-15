@@ -358,12 +358,12 @@ charged certus + 红石 + 下界石英 + 水 → fluix
 《深空当铺》没有 Minecraft 那种“世界里放方块”的网格，因此不能 1:1 复刻 AE2 的线缆/方块拓扑。可迁移的是**系统结构**：
 
 - **网络图** → 3×3 ME Controller/Control Terminal/Rack/Power Module/Disk Drive/Pattern Controller + **1×1 PoE 线缆**放在基础背包网格；拓扑是逻辑图 + 真实占格线缆，线缆只带电/数据/调度，不运物品。
-- **ME 适配器** → **Endpoint 默认**：role/tag/manual mapping，真实机器 push/pull/供电/monitor；**Virtual** 只给白名单确定性机器；**Read-only** 兜底；Monitor 是 UI tab。
+- **ME 适配器** → **Endpoint 默认**：role/tag/manual mapping，真实机器 push/pull/供电/monitor；**Read-only** 兜底；不做虚拟产线；Planner 只读规划；Monitor 是 UI tab。
 - **频道** → **1 个已连接 ME 适配器（虚拟/监控）= 1 通道**；常规线 8、致密线 32；模板控制器不占频道。
 - **字节/类型** → 固体/液体磁盘独立：16 索引/256 bytes 起，强化到 512/65,535；耐久/可变参数/永久强化/独特物品按**实例**存，一件一索引，不合并。
 - **终端** → 3×3 Control Terminal：Storage 虚拟列表 + Inbox 真实容器 + Daily Plan；Pattern Controller 5 页 17×10；水培/RAS 用 Monitor 概况页。
 - **导入/导出/存储总线** → 不做实体总线；网络导入/导出功能绑定容器/机器，虚拟搬运；线缆不运物品。
-- **自动合成** → **合成模板**夜间批量 **0 加急费**、基础电力照扣（实时读机器 `cycleKJ`）；白天加急 **+15 kJ/周期**（涡轮同价）；Virtual 纯计算 / Endpoint 真实机器 ETA；**过程模板**只能 Endpoint（屠宰/水培/RAS）排产；订单系统拆单/递归/配额。
+- **自动合成** → **合成/过程模板**都走 Endpoint 真实机器 ETA；夜间批量 **0 加急费**、基础电力照扣（实时读机器 `cycleKJ`）；白天加急 **+15 kJ/周期**（涡轮同价）；Planner 只读规划/预测；订单系统拆单/递归/配额。
 - **子网** → 后期可选多网络；不做 P2P/量子/空间 1:1。
 - **能量** → 3×3 Power Module（16 电池 + 1 转换器；255 → 65,535 kJ）；电流转换器输入每日 kJ；ME 适配器作为 `power_source_item` 从能源柜补电。
 - **生物/农业** → 不虚拟化；水培/RAS 保持原版 cycle，网络只做 Monitor/白名单维护/报警；无滤芯水循环用原子分离机。
