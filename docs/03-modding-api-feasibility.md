@@ -11,7 +11,7 @@
 > - **电缆**：1×1 PoE 线缆物品，负责电 + 数据 + 物流调度，不运物品；
 > - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化/耐久/可变参数物品（如无限电池、滤芯、工具）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：默认 **Endpoint**（真实机器，role/tag/manual mapping，push/pull/power/monitor），**Read-only** 兜底；不做虚拟产线；**Planner** 只读规划/预测；Monitor 是 UI tab，不是 profile；
 > - **自动合成**：3×3 模板控制器（5 页 17×10，2×1 模板）；合成/过程模板都走 Endpoint 真机器 ETA；Planner 只读规划；订单系统含客户/配额/递归子订单。
-> - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；无滤芯水循环（脏水→液体磁盘→原子分离机→纯水回灌）；活鱼/鱼苗/生长中植物不虚拟存储。
+> - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；无滤芯水循环（脏水→液体磁盘→ME 分馏阵列→纯水回灌）；活鱼/鱼苗/生长中植物不虚拟存储。
 > - **强兼**：任何 inventory 可达的机器都能通过机器 item 上的 `ME_ENDPOINT_ROLE_MAP_STRING` / `MachineryPanel` role / 手动映射接进来；容器端点（Storage Bus 等价）后续评估；反射只做兜底枚举，不猜语义。
 
 ---
@@ -395,7 +395,8 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Storage Bus | 容器适配器 | 当前不做独立 Storage Bus；网络导入/导出功能可绑定容器，按白名单索引/搬运 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
 | Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置，Endpoint only）；全部走 Endpoint 真机器 ETA；模板是唯一白名单 | 高 |
-| 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Endpoint + Monitor view**：原版 cycle 照跑，网络只监控/供电/白名单角色；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→原子分离机→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
+| 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Endpoint + Monitor view**：原版 cycle 照跑，网络只监控/供电/白名单角色；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→ME 分馏阵列→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
+| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` | **ME Fractionation Array 3×3**：固定 UV/M1/M2 + E1/P1/P2 + E2/P3/P4；子机自动虚拟电池 max 65,535 + 严格边界；液体分馏/物质守恒 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成虚拟周期；过程模板按真实机器 ETA 排产 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -602,7 +603,7 @@ ME Controller (network root)
 9. 排产/加急：夜间 0 加急费、基础电力照扣；白天 +15 kJ/周期；`cycleKJ` 实时读机器，升级/模块后重算；Endpoint 真实机器 + Planner 只读预测。
 10. Monitor：水培/RAS 槽位、RAS 水预算（`组数 × 成体水需`）、报警。
 11. 过程模板触发：`InitDropOnButcher`/`ButcherDropped` vs `onCycleEndLate` `Run`。
-12. 无滤芯水循环：RAS 脏水 → 液体磁盘 → Atomic Separator → 纯水回灌。
+12. 无滤芯水循环：RAS 脏水 → 液体磁盘 → ME Fractionation Array → 纯水回灌。
 
 ### 里程碑
 
@@ -712,7 +713,7 @@ ProbablyAppliedEnergistics2/
 
 > 已定事项与完整决策记录见 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 10 节；这里只留开放项。
 
-1. **原子分离机模组换算**：效率/质量/速度具体数值；效率应大幅降低耗电，但不能创造物质。
+1. **ME 分馏阵列子机/虚拟电池换算**：净水器/蒸发器/水分收集器的效率、质量、速度；虚拟电池上限/严格边界检查；不能创造物质或无限水。
 2. **磁盘强化配方**：每级用哪些游戏材料、是否需要高科技电子/模块。
 3. **模板获取/编码成本**：空白模板配方、编码是否耗电/耗时、模板控制器自身造价。
 4. **Monitor 自动维护阈值/默认开关**：固定阈值基础维护的数值，是否给玩家总开关。
@@ -720,6 +721,7 @@ ProbablyAppliedEnergistics2/
 6. **屠宰触发方式**：`InitDropOnButcher`/`ButcherDropped` 与宿主 `onCycleEndLate` `Run` 哪条是主路径。
 7. **动物笼服务口**：动物笼没有电池槽，MVP 不做，后续加专用服务口或笼子适配方式。
 8. **Container Endpoint（Storage Bus 等价）**：是否用 1×1 Storage Link 让网络索引真实容器（不搬物品）；MVP 不做，后续评估。
+9. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分（奥克莫西/梦尘）”已从分馏阵列移出；另开设备或删掉待定。
 
 ---
 
