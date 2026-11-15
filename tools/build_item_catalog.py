@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Build a local item catalog from the decompiled game + localization.
+"""Build item catalogs from the decompiled game + localization.
 
-Outputs (local research cache, not for publishing):
-  ModsDev/reference/item-catalog-detailed.md
-  ModsDev/reference/item-catalog.json
+Outputs:
+  ModsDev/reference/item-catalog-detailed.md   (local only; contains localization)
+  ModsDev/reference/item-catalog.json          (local only; contains localization)
+  ModsDev/ref/item-catalog.md                  (public index; IDs/tags/capacities/values only)
+  ModsDev/ref/item-catalog.json                (public data; no localization)
 
 Usage:
   python -I tools/build_item_catalog.py
@@ -21,6 +23,8 @@ LOC_EN = ROOT / "reference" / "localization" / "loc_en.json"
 LOC_ZH = ROOT / "reference" / "localization" / "loc_zh.json"
 OUT_MD = ROOT / "reference" / "item-catalog-detailed.md"
 OUT_JSON = ROOT / "reference" / "item-catalog.json"
+OUT_PUBLIC_MD = ROOT / "ref" / "item-catalog.md"
+OUT_PUBLIC_JSON = ROOT / "ref" / "item-catalog.json"
 
 ADD_RE = re.compile(r'\bAdd\("([^"]+)"\s*,\s*\(\)\s*=>\s*([^)]+)\)')
 METHOD_RE = re.compile(r'\b(?:private|public|protected|internal)\s+(?:static\s+)?GameItem\s+([A-Za-z0-9_]+)\s*\(')
@@ -283,8 +287,84 @@ def main() -> None:
 
     OUT_MD.write_text("\n".join(lines), encoding="utf-8")
 
+    # Public, localization-free index for git collaborators.
+    public_keys = (
+        "id",
+        "directory",
+        "kind",
+        "types",
+        "tags",
+        "value",
+        "module_type",
+        "liquid_ml",
+        "liquid_base_price",
+        "is_dropper",
+        "is_graduated",
+        "is_filter_container",
+    )
+    public_rows = [{k: r[k] for k in public_keys} for r in rows]
+    OUT_PUBLIC_JSON.parent.mkdir(parents=True, exist_ok=True)
+    OUT_PUBLIC_JSON.write_text(
+        json.dumps(public_rows, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    public = [
+        "# Probably Stolen — 原版物品公开索引",
+        "",
+        "> 由 `tools/build_item_catalog.py` 从本机反编译源码生成。",
+        "> **仅含 ID / 类型 / tag / 容量 / 价值，不含本地化名称、描述或反编译代码。**",
+        "> 详细名称/描述目录留在本地 `reference/item-catalog-detailed.md`，不提交。",
+        "",
+        f"- 实际物品条目：**{len(items)}**",
+        f"- 战斗能力/效果（非物品）：**{counts.get('ability', 0)}**",
+        f"- 未使用/调试条目：**{counts.get('unused', 0)}**",
+        f"- 仅本地化、未映射到目录：**{counts.get('unmapped', 0)}**",
+        f"- 物品目录数：**{len(by_dir)}**",
+        "",
+        "## 目录统计",
+        "",
+        "| 目录 | 条目数 |",
+        "|---|---:|",
+    ]
+    for directory, dir_items in sorted(by_dir.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        public.append(f"| {directory} | {len(dir_items)} |")
+
+    public += ["", "## 液体容器", "", "| ID | 容量 | 标记 | 基础价 |", "|---|---:|---|---:|"]
+    for r in sorted(liquid_rows, key=lambda x: (x["liquid_ml"] or 0, x["id"])):
+        flags = []
+        if r["is_dropper"]:
+            flags.append("dropper")
+        if r["is_graduated"]:
+            flags.append("graduated")
+        if r["is_filter_container"]:
+            flags.append("filter")
+        public.append(
+            f"| `{r['id']}` | {r['liquid_ml']}mL | {'、'.join(flags) or '-'} | "
+            f"{r['liquid_base_price']} |"
+        )
+
+    public += ["", "## 物品索引", "", "| ID | 类型/容量 | 标签 | 价值 |", "|---|---|---|---:|"]
+    for r in sorted(items, key=lambda x: (x["directory"], x["id"])):
+        tags = ", ".join(r["tags"][:8])
+        public.append(
+            f"| `{r['id']}` | {fmt_flags(r) or '-'} | {tags or '-'} | "
+            f"{r['value'] if r['value'] is not None else '-'} |"
+        )
+
+    unused = [r for r in rows if r["kind"] == "unused"]
+    if unused:
+        public += ["", f"## 未使用 / 调试条目（{len(unused)}）", "", "| ID | 类型/容量 | 标签 |", "|---|---|---|"]
+        for r in sorted(unused, key=lambda x: x["id"]):
+            tags = ", ".join(r["tags"][:8])
+            public.append(f"| `{r['id']}` | {fmt_flags(r) or '-'} | {tags or '-'} |")
+
+    public.append("")
+    OUT_PUBLIC_MD.write_text("\n".join(public), encoding="utf-8")
+
     print(f"wrote {OUT_MD} ({len(items)} items; {len(rows)} entries)")
     print(f"wrote {OUT_JSON}")
+    print(f"wrote {OUT_PUBLIC_MD}")
+    print(f"wrote {OUT_PUBLIC_JSON}")
     print("top directories:")
     for directory, items in sorted(by_dir.items(), key=lambda kv: -len(kv[1]))[:12]:
         print(f"  {directory}: {len(items)}")

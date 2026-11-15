@@ -5,6 +5,7 @@ reference/
 bin/
 obj/
 .vs/
+__pycache__/
 *.user
 *.suo
 *.userprefs

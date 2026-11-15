@@ -3,6 +3,7 @@
 > 目标：把原版物品按目录、液体容器、机器/模块/工具/食物等维度整理出来，给模组设计“物尽其用”。
 >
 > **完整逐条目录（含中英文名/描述/tag/容量）是本地研究缓存**：`reference/item-catalog-detailed.md` 与 `reference/item-catalog.json`，由 `tools/build_item_catalog.py` 生成；因为包含游戏本地化文本，**不提交到 GitHub**。
+> **公开协作索引**：`ref/class-index.md`、`ref/item-catalog.md`、`ref/item-catalog.json`；只含类名/ID/tag/容量/价值，不含本地化文本或反编译代码。
 
 ## 1. 规模
 
@@ -58,14 +59,14 @@
 | `mini_bottle` | 瓶装水（微型） | 250mL | - | 3 |
 | `large_bottled_water` | 瓶装水（大） | 2000mL | - | 9 |
 
-化学配方体积：100uL（避孕药）到 5000uL（咖啡因/梦尘 2000/噩梦 4000/奥克莫吸 4000），**1ml + 5ml 滴管刚好覆盖**；更大体积可加 25/50/100mL 量筒或多个 5ml 剂量。
+化学配方体积：100uL（避孕药）到 5000uL（咖啡因/梦尘 2000/噩梦 4000/奥克莫吸 4000），**1ml + 5ml 滴管覆盖现有单次配方**；25/50/100mL 量筒用于更大批量/前处理，不强制每单使用。
 
 ## 3. 机器 / 模块 / 工具（模组直接复用）
 
 | 类别 | 关键物品 | 在本模组中的用途 |
 |---|---|---|
-| 水处理 | `water_purifier`、`evaporator`、`moisture_farm`、`uv_filter`、`aquascan`、`water_filter` | **ME 分馏阵列**固定槽 |
-| 化学 | `blender`、`heating_plate`、`chem_finisher`、`module_extractor`、`1ml_dropper`/`5ml_dropper` | **ME 化学灌注阵列**固定槽 |
+| 水处理 | `water_purifier`、`evaporator`、`moisture_farm`、`uv_filter`、`aquascan`、`water_filter` | **ME 分馏阵列插件槽**（网络液体服务）；机器插件只读最终 stat，不跑原版 cycle；分离额度=杂质 uL，蒸馏额度=蒸出体积；鱼缸原地净化，水培补纯水；无水箱/实 IO |
+| 化学 | `blender`、`heating_plate`、`evaporator`、`chem_finisher`、`chem_scanner`、`module_extractor`、`1ml_dropper`/`5ml_dropper`、25/50/100ml 量筒 | **ME 化学灌注阵列实体工位**；只有蒸发器耗电并生成虚拟电池；不要求强化满，0/1 加热板可做 Oxymore 但慢/粗，2+ 设温 5°C 步进；低搅拌/成型=地摊货 |
 | 模块 | `chem_module`、`system_module_*`、`module_bay_expansion_kit`、`module_extractor_advanced` | 子机增益/机械臂 |
 | 动力 | `common_electronic`、电池、`turbo_booster_adv`/`hypertech` | 能源柜/加速 |
 | 扫描/鉴定 | `aquascan`、`chem_scanner`、`plant_dna_manipulator`、`appraisal` 证书 | 监控/鉴定 |
@@ -76,11 +77,12 @@
 ## 4. “物尽其用”的设计含义
 
 1. **不再发明重复物品**：滴管、量筒、水罐、水桶、RAS 水箱、滤芯、UV 灯、扫描仪、模块提取器全部复用原版。
-2. **机器塞机器**：分馏阵列和化学灌注阵列的固定槽直接塞原版机器；子机保留模块/品质，不另造“虚拟机器”。
-3. **计量即玩法**：1ml/5ml 滴管对应化学配方体积；25/50/100ml 量筒为更大配方留口。
+2. **插件 vs 实体工位**：分馏阵列是网络液体服务的插件槽，机器只提供最终 stat，不跑原版 cycle、不新建虚拟机器；化学灌注阵列是实体工位，真实机器/工具/阶段。分馏的净水/蒸发转为双额度，水分收集器日结收水。
+3. **计量即玩法**：1ml/5ml 滴管对应现有化学配方体积；25/50/100ml 量筒服务更大批量/前处理，槽位不白给。
 4. **机械臂即损耗**：基础模块提取器 100 单损耗、高级永久；原版基础是 6 次使用、可电子件翻修，这里按模组规则改，但保留基础/高级差异。
-5. **核心即增益**：ME 核心锁定不可取出，给阵列提供速度/效率/质量增益；不是又一个可拆模块。
-6. **扫描即信息**：`aquascan`/`chem_scanner` 放进槽位才显示详细纯度/成分；没有就只显示基础状态。
+5. **低强化即地摊货**：搅拌机/化学成型机模块少 → 高损耗/高杂质，ME 按纯度分开；满强化做稳定库存，低强化可实时下单，不强制 4 模块。
+6. **核心即增益**：ME 核心锁定不可取出，给阵列提供速度/效率/质量增益；不是又一个可拆模块。
+7. **扫描即信息**：`aquascan`/`chem_scanner` 放进槽位才显示详细纯度/成分；没有就只显示基础状态。
 
 ## 5. 备注
 
