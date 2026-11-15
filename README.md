@@ -17,29 +17,27 @@
 - 社区模组文档跟踪的是 **100-Rev14 beta**；安装版缺少部分文档 API。详见 [03 可行性文档](docs/03-modding-api-feasibility.md)。
 - 核心硬件：**3×3 机架**（内部 2×4 = 8 个万能槽）/ 3×3 控制器 / 控制终端 / 模板控制器 / 电力模块 / 磁盘驱动器 + **1×1 PoE 线缆**。
 - 不做实体货运、物品管道、物品飞行；线缆只带电、数据、物流调度。
-- **网络是总线，不是工厂**：玩家搭机器、农场、水/饲料/滤芯循环和电力线；网络负责存储、搬运、排产、供电、监控。
+- **网络是总线，不是工厂**：玩家搭机器、农场、水/饲料/分离循环和电力线；网络负责存储、搬运、排产、供电、监控。
 - **没有虚拟生产**：物品必须来自真实 Endpoint 机器；液体分馏必须来自分馏服务处理真实网络液体。
-- 机架机器入库是停机 Instance；进机架 + 插 **ME Adapter** + 频道连接才会成为 **Endpoint**（真实机器跑原版 cycle）；找不到安全角色时 **Read-only**。
+- 机架机器入库是停机 Instance；进机架 + 插 **ME Adapter** + 频道连接才会被接管。适配器三拨挡：**供电/物流/控制**，默认仅供电；物流/控制手动开，不可用变灰。
 - **Planner** 只读规划材料、周期、实时 `cycleKJ`、ETA，不产出物品。
 - **10 tps 对账**（MC 20 tps 的一半）：只扫已连接适配器，按预算 round-robin；不扫全店。
 - **端点发现顺序**：机器 item 上的 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → 原版机器 profile → 手动映射 → `ModReflect`/字面反射兜底；反射只枚举，不猜语义。
 - **电力柜**：16 电池槽 + 1 电流转换器槽；255 → 65,535 kJ；每天付账后只充一次；普通电池在线备电、日结单块最多 1/4；无限电池只有日输出额度（基础 12，+10/次，无上限），结算读一次不缓存；一次性/违禁电池不充电。
-- **模板控制器**：3×3；5 页 × 17×10；**2×1 模板**；合成模板/过程模板；只有模板命中的输出在 0 库存时显示幽灵，其他耗尽即消失。
-- **分馏阵列 = ME 网络液体服务**：3×3 外观 / 4×3 插件槽；无 512L 水箱、无实 IO、无“输出满”。
-  - 机器插件只读最终 stat，不跑原版净水/蒸发 cycle。
+- **ME Controller 能力页**：独立 UI，几十个小格；`aquascan`/`gene_scanner`/`plant_analyser`/`chem_scanner` + 2 滴管 + 3 量筒；无消耗、不占频道；插着解锁，拔掉暂停。化学精确计量/控温由控制器接管加热板。
+- **模板控制器**：3×3；5 页 × 17×10；**2×1 模板**；合成模板/过程模板；Manual（固定机架/槽）/Auto（类型/角色 + `minQuality` 0–100 负载均衡）；只有模板命中的输出在 0 库存时显示幽灵。
+- **分馏阵列 = ME 网络液体服务**：3×3 外观 / 2×4 内部；8 个自由槽只放净水/蒸发；无 512L 水箱、无实 IO、无“输出满”。
+  - 每台插件 1 ch，空槽 0，最多 8 ch；机器插件只读最终 stat，不跑原版 cycle。
   - 每插件虚拟电池容量 = 该机器最终日耗电（最低 1 kJ），总和 = 日租；效率无硬上限。
-  - **分离额度**按处理掉的杂质 uL 扣；**蒸馏额度**按实际蒸出体积扣；水被蒸出也算水。
+  - **水模式**分离额度按杂质 uL；**化学/非水模式**按全额液体体积扣（惩罚）；**蒸馏额度**按实际蒸出体积扣。
   - 质量因子 `1 - 0.5 × (1-q)^2`；q=0% → 0.5，50% → 0.875，100% → 1。
   - 夜间扣日租/刷新额度/鱼缸最高优先/排单，剩余给白天；次日清零不结转。
-  - **鱼缸/RAS 原地净化**：杂质→水，不抽水；不够自动买包。水培不净化，只补纯水到 **40–100%，默认 90%**；100% 不自动排水，加矿物质需自己用量杯舀水。
-  - 分离/蒸馏补充包分开，`+15 kJ/包`，无限买，能量不足才停；自动买包强制开，不做 per-device 开关。
-  - 全局设置：`fish_tank_purity_target`、`hydroponic_water_target`；终端网络状态页是 UI 入口。
-- **化学灌注阵列 = 实体机器**：3×3 外观 / 4×3 真实工位；1ml/5ml 滴管、成分光谱仪、ME 核心 / 25/50/100ml 量筒、模组提取器 / 搅拌机、加热板、蒸发器、化学成型机。
-  - 只有蒸发器耗电并生成虚拟电池 max 65,535。
-  - **不要求强化满**：4 个 CHEM 模块 = 满强化，模块无等级；低搅拌/成型模块 → 高损耗/高杂质“地摊货”，ME 按纯度分开。
-  - **0/1 加热板**：不能设目标温度；按 T±2 滞回，UI 2/3 档低/高交替，低于 T−2 加热、到 T 关闭、超 T+2 关闭等自然降温；可做 Oxymore，只是慢/粗。
-  - **2/3/4 加热板**：直接设 `CURRENT_TARGET_TEMP`，5°C 步进；2/3 只是速度差异，4 最快；10 tps，无 PID。
-- 分馏与化学灌注同级、同 3×3 footprint、都在机柜阵列外部，不能塞机架；每台固定 **8 通道宽带总线**，内部槽不单独计频道。
+  - **鱼缸/RAS 原地净化**：杂质→水，不抽水；自动买包默认开、可关，关掉用完为止。水培不净化，只补纯水到 **40–100%，默认 90%**；100% 不自动排水，加矿物质需自己用量杯舀水。
+  - 分离/蒸馏补充包分开，`+15 kJ/包`，无限买，能量不足才停；`auto_buy_flow_packs` 默认开、可关，关掉用完为止。
+  - 全局设置：`fish_tank_purity_target`、`hydroponic_water_target`、`auto_buy_flow_packs`；终端网络状态页是 UI 入口。
+- **化学流水线**：不再有化学灌注阵列；Blender/Heating/Evaporator/Chem Finisher 作为独立 Endpoint；ME Controller 化学解锁后精确计量/控温；第二台加热板用于并行；低强化=地摊货，ME 按纯度分开。
+- **共享屠宰**：不装内置屠宰器；共享 Auto Butcher；活鱼 Endpoint 直搬，不进虚拟存储；ME 清死鱼/未受精卵后续细化。
+- 15 kJ/加速 cycle：默认开、config 可关；普通机器无磨损，异常退化/超频模组另算；分馏服务排除。
 - Hero tool：**3×2 移液枪**。
 
 ### 文档
@@ -50,7 +48,7 @@
 | [02 — 游戏玩法](docs/02-game-gameplay.md) | 日循环、房租/贷款、顾客、交易、鉴定、违禁品/检查、物品/容器、机器/电力、夜间营业、剧情 |
 | [03 — 模组 API 与可行性](docs/03-modding-api-feasibility.md) | 已验证 API、Rev13 vs Rev14、AE2 → 游戏映射、当前架构、Phase 0 清单、风险、仓库结构 |
 | [04 — 立项一页纸](docs/04-project-brief.md) | 当前范围、MVP、非目标、里程碑 |
-| [05 — 当前设计决策](docs/05-current-design-decisions.md) | **权威设计**：机架/终端/模板/电力/磁盘、Endpoint/Read-only、Planner、分馏服务、化学灌注、Monitor、订单、M0–M5 |
+| [05 — 当前设计决策](docs/05-current-design-decisions.md) | **权威设计**：机架/终端/模板/电力/磁盘、三拨挡适配器、ME Controller 能力页、Planner、8 槽分馏服务、化学流水线、共享屠宰、Monitor、订单、M0–M5 |
 | [06 — 原版生产链](docs/06-vanilla-production-chains.md) | 机器、水/食物/化学/水产/畜牧/枪/酒、合成/经济、夜间循环、“网络是总线不是工厂” |
 | [07 — 原版物品总表](docs/07-item-atlas.md) | 目录数量、量筒/滴管、关键机器/模块/工具、“物尽其用”设计说明 |
 
@@ -127,29 +125,29 @@
 - Community docs track **100-Rev14 beta**; some documented APIs are absent from the installed build. See [03](docs/03-modding-api-feasibility.md).
 - **3×3 rack** (2×4 = 8 universal slots) / 3×3 controller / terminal / pattern controller / power module / disk drive + **1×1 PoE cables**.
 - No freight, item pipes, or flying items. Cables carry power, data, and logistics scheduling only.
-- **The network is a bus, not a factory**: players build machines, farms, water/feed/filter loops, and power lines; the network stores, moves, schedules, powers, and monitors.
+- **The network is a bus, not a factory**: players build machines, farms, water/feed/separation loops, and power lines; the network stores, moves, schedules, powers, and monitors.
 - **No virtual production**: items require a real Endpoint machine; liquid fractions require the fractionation service processing real network fluids.
-- Rack machines are inert instances until placed in a rack with a **ME Adapter** and an allocated channel; then they become an **Endpoint** running the real vanilla cycle. **Read-only** is the fallback.
+- Rack machines are inert instances until placed in a rack with a **ME Adapter** and an allocated channel. The adapter has three vertical rockers: **power / logistics / control**, default **power only**; logistics/control are manual opt-ins and gray out when unavailable. **Read-only** is the fallback.
 - **Planner** forecasts materials, cycles, live `cycleKJ`, and ETA but never outputs items.
 - **10 tps** adapter reconciliation; budgeted round-robin; no full-store scans.
 - Discovery: `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → vanilla profile → manual map → `ModReflect`/literal reflection; reflection enumerates inventories, never infers semantics.
 - **Power cabinet**: 16 battery slots + 1 converter slot; 255 → 65,535 kJ; charged once per day after bills. Infinite batteries provide a daily output rating only (base 12, +10/upgrade), read once at settlement, not cached.
-- **Pattern Controller**: 3×3, five 17×10 tabs, **2×1 patterns**; crafting and processing patterns; only patterned outputs stay as ghosts at zero stock.
-- **Fractionation Array = ME network liquid service**: 3×3 / 4×3 plugin slots; no 512 L tank, no real I/O, no “output full”.
+- **ME Controller capability page**: dozens of small slots; `aquascan`/`gene_scanner`/`plant_analyser`/`chem_scanner` + 2 droppers + 3 cylinders; no consumption, no channel; installed = unlocked, removed = paused. Chemical precision/thermostat control is handled through the controller.
+- **Pattern Controller**: 3×3, five 17×10 tabs, **2×1 patterns**; crafting and processing patterns; **Manual** pins rack/slot, **Auto** matches type/role + `minQuality` 0–100 with load balancing; only patterned outputs stay as ghosts at zero stock.
+- **Fractionation Array = ME network liquid service**: 3×3 external / 2×4 internal; 8 free slots for purifiers/evaporators only; no 512 L tank, no real I/O, no “output full”.
+  - Each installed machine uses **1 ch**; empty slots 0; max 8 ch.
   - Machine items are stat plugins; no vanilla purifier/evaporator cycles.
   - Each plugin has a locked virtual battery equal to its final daily power (1 kJ floor); the array’s daily rent is the sum.
-  - **Separation quota** is charged by impurity uL; **distillation quota** by actual evaporated volume (water counts when evaporated).
+  - **Water mode**: separation quota charged by impurity uL. **Chemical/non-water mode**: full liquid volume is charged (penalty). **Distillation quota**: actual evaporated volume (water counts when evaporated).
   - Quality factor `1 - 0.5 × (1-q)^2`.
   - Night: pay rent, refresh quotas, fish tanks first, then scheduled jobs; remainder goes to daytime and is cleared next night.
-  - **Fish tanks/RAS are purified in place** (impurity → water, no pumping); auto-buy packs if short. Hydroponics are not purified; they are topped up with pure water to **40–100%, default 90%**; at 100% there is no auto-drain, so the player must remove water before adding minerals.
-  - Separate separation/distillation flow packs: **+15 kJ each**, unlimited while energy lasts; auto-buy is forced on, no per-device toggle.
-  - Global settings: `fish_tank_purity_target`, `hydroponic_water_target`; edited in the terminal’s Network Status page.
-- **Chemical Infusion Array = physical machine**: 3×3 / 4×3 workstations; 1/5 mL droppers, composition spectrometer, ME Core / 25/50/100 mL cylinders, module-extractor arm / blender, heating plate, evaporator, chem finisher.
-  - Only the evaporator consumes power and gets a virtual battery (max 65,535).
-  - **No full-upgrade gate**: 4 CHEM modules = full upgrade; modules have no tiers. Weak blender/finisher upgrades produce high-impurity “street” output stored by purity.
-  - **0/1 heating plates**: no target temp; use T±2 hysteresis, UI low/high (2/3) alternation, heat below T−2, stop at T, stop above T+2 and wait for natural cooling. Oxymore works, just slower/coarser.
-  - **2/3/4 heating plates**: set `CURRENT_TARGET_TEMP` directly in 5°C steps; 2/3 differ only in heating speed, 4 is fastest; 10 tps, no PID.
-- Both are same-tier 3×3 combination devices outside the rack; each uses a fixed **8-channel wideband bus**; internal slots do not consume separate channels.
+  - **Fish tanks/RAS are purified in place** (impurity → water, no pumping); auto-buy packs defaults on and can be turned off, in which case quota is used until exhausted. Hydroponics are not purified; they are topped up with pure water to **40–100%, default 90%**; at 100% there is no auto-drain, so the player must remove water before adding minerals.
+  - Separate separation/distillation flow packs: **+15 kJ each**, unlimited while energy lasts; `auto_buy_flow_packs` defaults on and can be turned off, then quota is used until exhausted.
+  - Global settings: `fish_tank_purity_target`, `hydroponic_water_target`, `auto_buy_flow_packs`; edited in the terminal’s Network Status page.
+- **ME Controller capability page**: dozens of small slots; `aquascan`/`gene_scanner`/`plant_analyser`/`chem_scanner` + 2 droppers + 3 cylinders; no consumption, no channel; installed = unlocked, removed = paused. Chemical precision/thermostat control is handled through the controller.
+- **Chemical pipeline**: no Chemical Infusion Array; Blender/Heating/Evaporator/Chem Finisher are independent Endpoints; controller chemical unlock gives precise dosing/thermostat; a second heating plate can run in parallel; weak upgrades produce high-impurity street output stored by purity.
+- **Shared butcher**: no built-in tank butcher; shared Auto Butcher; live fish moved by Endpoint, not virtual storage; dead-fish/unfertilized-egg cleanup later.
+- **15 kJ per accelerated cycle**: default on, configurable off; normal machines have no wear, only abnormal degradation/overclock modules; fractionation service excluded.
 - Hero tool: **3×2 fluid transfer gun**.
 
 ### Documents
@@ -160,7 +158,7 @@
 | [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent, customers, trading, appraisal, contraband/inspection, items/containers, machines/power, afterhours, story |
 | [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API, Rev13 vs Rev14, AE2 → game mapping, architecture, Phase 0 checklist, risks |
 | [04 — Project brief](docs/04-project-brief.md) | Scope, MVP, non-goals, milestones |
-| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative design:** racks, terminal, patterns, power, disks, Endpoint/Read-only, Planner, fractionation service, chemical infusion, monitors, orders |
+| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative design:** racks, terminal, patterns, power, disks, three-toggle adapters, ME Controller capability page, Planner, 8-slot fractionation service, chemical pipeline, shared butcher, monitors, orders |
 | [06 — Vanilla production atlas](docs/06-vanilla-production-chains.md) | Machines, water/food/chem/aquaculture/husbandry/gun/wine chains, economy, night cycle |
 | [07 — Vanilla item atlas](docs/07-item-atlas.md) | Item counts, measuring containers, key machines/modules/tools, “use what the game has” notes |
 
@@ -170,7 +168,7 @@
 2. **No world block grid**; racks and cables are items in the base grid. Cables do not carry items.
 3. **Items are unique instances**: condition, authenticity, contents, and features can differ; solid/fluid disks are separate; instances are never merged; complex items are disassembled on ingest.
 4. **Templates gate ghosts**: five 17×10 tabs, 2×1 patterns, only patterned outputs remain as ghosts at zero stock.
-5. **Biology is monitored, not virtualized**: hydroponic/RAS keep vanilla cycles; RAS monitor forecasts `Σ groupCount × adult water need`; filterless loop uses dirty water → fluid disk → fractionation service → pure water.
+5. **Biology is monitored, not virtualized**: hydroponic/RAS keep vanilla cycles; RAS monitor forecasts `Σ groupCount × adult water need`; the separation loop uses dirty water → fluid disk → fractionation service → pure water.
 6. **Compatibility is endpoint-first**: role-map tags, `MachineryPanel` roles, vanilla profiles, or manual mapping; no per-machine proxy; reflection only enumerates.
 7. **The network is a bus, not a factory**: no virtual fabrication; every item needs a real Endpoint, every liquid fraction needs real network fluid processed by the service; Planner is read-only.
 

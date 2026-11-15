@@ -65,9 +65,9 @@
 
 | 类别 | 关键物品 | 在本模组中的用途 |
 |---|---|---|
-| 水处理 | `water_purifier`、`evaporator`、`moisture_farm`、`uv_filter`、`aquascan`、`water_filter` | **ME 分馏阵列插件槽**（网络液体服务）；机器插件只读最终 stat，不跑原版 cycle；分离额度=杂质 uL，蒸馏额度=蒸出体积；鱼缸原地净化，水培补纯水；无水箱/实 IO |
-| 化学 | `blender`、`heating_plate`、`evaporator`、`chem_finisher`、`chem_scanner`、`module_extractor`、`1ml_dropper`/`5ml_dropper`、25/50/100ml 量筒 | **ME 化学灌注阵列实体工位**；只有蒸发器耗电并生成虚拟电池；不要求强化满，0/1 加热板可做 Oxymore 但慢/粗，2+ 设温 5°C 步进；低搅拌/成型=地摊货 |
-| 模块 | `chem_module`、`system_module_*`、`module_bay_expansion_kit`、`module_extractor_advanced` | 子机增益/机械臂 |
+| 水处理 | `water_purifier`、`evaporator`、`moisture_farm` | **ME 分馏阵列 8 个自由槽**（网络液体服务）：1 槽 1 ch，只放净水/蒸发；水模式分离按杂质，化学/非水模式全额体积；蒸馏按蒸出体积；鱼缸原地净化，水培补纯水；无水箱/实 IO |
+| 化学 | `blender`、`heating_plate`、`evaporator`、`chem_finisher`、`chem_scanner`、`module_extractor`、`1ml_dropper`/`5ml_dropper`、25/50/100ml 量筒 | **化学流水线独立 Endpoint**；ME Controller 能力页解锁精确计量/控温；0/1 加热板可做 Oxymore 但慢/粗，2+ 设温 5°C 步进；低搅拌/成型=地摊货 |
+| 模块 | `chem_module`、`system_module_*`、`module_bay_expansion_kit`、`module_extractor_advanced` | 子机增益/模块维护/化学品质 |
 | 动力 | `common_electronic`、电池、`turbo_booster_adv`/`hypertech` | 能源柜/加速 |
 | 扫描/鉴定 | `aquascan`、`chem_scanner`、`plant_dna_manipulator`、`appraisal` 证书 | 监控/鉴定 |
 | 农/渔 | `hydroponic`、`RAS`、`animal_cage`、`auto_butcher`、`feed_dispenser` | Endpoint + Monitor |
@@ -76,13 +76,12 @@
 
 ## 4. “物尽其用”的设计含义
 
-1. **不再发明重复物品**：滴管、量筒、水罐、水桶、RAS 水箱、滤芯、UV 灯、扫描仪、模块提取器全部复用原版。
-2. **插件 vs 实体工位**：分馏阵列是网络液体服务的插件槽，机器只提供最终 stat，不跑原版 cycle、不新建虚拟机器；化学灌注阵列是实体工位，真实机器/工具/阶段。分馏的净水/蒸发转为双额度，水分收集器日结收水。
+1. **不再发明重复物品**：滴管、量筒、水罐、水桶、RAS 水箱、扫描仪、模块提取器全部复用原版；滤芯/UV 不再作为分馏槽位。
+2. **插件 vs 实体流水线**：分馏阵列是 8 槽网络液体服务，机器只提供最终 stat，不跑原版 cycle；化学改为独立 Endpoint 流水线，不再有化学灌注阵列；ME Controller 能力页负责解锁计量/控温。
 3. **计量即玩法**：1ml/5ml 滴管对应现有化学配方体积；25/50/100ml 量筒服务更大批量/前处理，槽位不白给。
 4. **机械臂即损耗**：基础模块提取器 100 单损耗、高级永久；原版基础是 6 次使用、可电子件翻修，这里按模组规则改，但保留基础/高级差异。
 5. **低强化即地摊货**：搅拌机/化学成型机模块少 → 高损耗/高杂质，ME 按纯度分开；满强化做稳定库存，低强化可实时下单，不强制 4 模块。
-6. **核心即增益**：ME 核心锁定不可取出，给阵列提供速度/效率/质量增益；不是又一个可拆模块。
-7. **扫描即信息**：`aquascan`/`chem_scanner` 放进槽位才显示详细纯度/成分；没有就只显示基础状态。
+6. **扫描即能力**：`aquascan`/`gene_scanner`/`plant_analyser`/`chem_scanner` 插进 ME Controller 能力页才解锁对应能力；拔掉暂停，不消耗、不占频道。
 
 ## 5. 备注
 

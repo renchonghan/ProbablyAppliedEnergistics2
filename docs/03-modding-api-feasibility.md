@@ -9,10 +9,13 @@
 >
 > **Current design note（2026-11-15）**：本文是 API/可行性调查 + 当前架构摘要；设计决议以 [`05-current-design-decisions.md`](05-current-design-decisions.md) 为准。文中保留少量“早期方案已废弃”的对比，不要照做：
 > - **电缆**：1×1 PoE 线缆物品，负责电 + 数据 + 物流调度，不运物品；
-> - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化/耐久/可变参数物品（如无限电池、滤芯、工具）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：默认 **Endpoint**（真实机器，role/tag/manual mapping，push/pull/power/monitor），**Read-only** 兜底；不做虚拟产线；**Planner** 只读规划/预测；Monitor 是 UI tab，不是 profile；
+> - **存储**：3×3 控制终端 + Disk Drive/磁盘；物品入库 = 拆解计划 → 写盘 → 校验 → 删除；复杂物品拆成叶子，原子/密封物品拒绝；永久强化/耐久/可变参数物品（如无限电池、滤芯、工具）按实例存，不合并；机器整机 Instance 存但停机；进机架 + 插 ME 适配器才被接管：默认 **仅供电**，物流/控制手动开；真实机器跑原版 cycle；**Read-only** 兜底；不做虚拟产线；**Planner** 只读规划/预测；Monitor 是 UI tab，不是 profile；
 > - **自动合成**：3×3 模板控制器（5 页 17×10，2×1 模板）；合成/过程模板都走 Endpoint 真机器 ETA；Planner 只读规划；订单系统含客户/配额/递归子订单。
 > - **生物自动化**：不虚拟化；过程模板只读原版屠宰设置、决定投什么鱼；RAS monitor 用水预算/爆缸预测报警；无滤芯水循环（脏水→液体磁盘→ME 分馏服务→纯水回灌）；活鱼/鱼苗/生长中植物不虚拟存储。
-> - **组合式设备**：ME 分馏阵列 / ME 化学灌注阵列**同级**；均 3×3 外观 + 4×3 固定槽，不是机架模块。**分馏=ME 网络液体服务**：机器插件只读最终 stat，不跑原版 cycle；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；分离额度=杂质 uL，蒸馏额度=蒸出体积；鱼缸最高优先原地净化，水培补纯水；无实 IO/无 512L 水箱/无输出满；分离/蒸馏包分开 +15 kJ 自动买。**灌注=实体化学机器**：真实工位/阶段，只有蒸发器耗电/虚拟电池；不要求强化满，0/1 加热板 T±2 滞回、2+ 设温 5°C，低强化=地摊货。**每台固定 8 通道宽带总线**。
+> - **ME 分馏阵列**：3×3 外观 / 2×4 内部，8 个自由槽只放净水/蒸发；1 槽 1 ch，空槽 0，最多 8 ch；无滤芯/UV/核心；机器插件只读最终 stat，不跑原版 cycle；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；水模式分离额度=杂质 uL，化学/非水模式全额体积；蒸馏额度=蒸出体积；鱼缸优先；水培补纯水；无实 IO/无 512L 水箱/无输出满；自动买包默认开、可关。
+> - **ME Controller 能力页**：独立 UI，几十个小格；`aquascan`/`gene_scanner`/`plant_analyser`/`chem_scanner` + 2 滴管 + 3 量筒；无消耗、不占频道；插着解锁，拔掉暂停；化学精确计量/控温由控制器接管加热板。
+> - **化学流水线**：不再需要化学灌注阵列；Blender/Heating/Evaporator/Chem Finisher 作为独立 Endpoint；第二台加热板并行；机器一般无磨损，异常退化/超频模组另算；15 kJ/加速 cycle 默认开、config 可关。
+> - **共享屠宰**：不装内置屠宰器；共享 Auto Butcher；活鱼 Endpoint 直搬；ME 清死鱼/未受精卵后续。
 > - **强兼**：任何 inventory 可达的机器都能通过机器 item 上的 `ME_ENDPOINT_ROLE_MAP_STRING` / `MachineryPanel` role / 手动映射接进来；容器端点（Storage Bus 等价）后续评估；反射只做兜底枚举，不猜语义。
 
 ---
@@ -387,7 +390,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 |---|---|---|---|
 | ME 网络 | 无原生对应 | **3×3 机架（内部 2×4 槽）+ 3×3 控制终端 + 网络图**（`uniqueId`/端口），不是世界方块 | 中 |
 | 线缆/致密线缆 | 无世界网格 | **1×1 PoE 线缆物品**，物理占格；电 + 数据 + 调度；不运物品 | 低-中 |
-| 频道 | 无原生对应 | **1 个已连接 ME 适配器（Endpoint/Read-only）= 1 通道**；**1 台组合式机器固定 8 通道（宽带总线，整块分配）**；常规 8 / 致密 32；模板控制器不占频道 | 中 |
+| 频道 | 无原生对应 | **1 个已连接 ME 适配器 = 1 通道**（仅供电也算）；**分馏阵列每台插件 1 ch，空槽 0，最多 8**；常规 8 / 致密 32；模板控制器和 Controller 能力页不占频道 | 中 |
 | 能量（AE） | `PowerHelper` 的 kW/kJ + 电源物品 | ME 能源柜每天付账后充一次；电流转换器设输入功率；ME 适配器本身是 `power_source_item`：Endpoint 给真 cycle 供电 | 中 |
 | 存储单元（字节/类型） | 物品实例 + 容器 | **3×3 控制终端 + Disk Drive/磁盘**：Storage 虚拟视图 + Inbox 真实页；磁盘 512 索引/65,535 字节 | 高 |
 | Drive / ME Chest | 机器物品 + 物品槽 | **3×3 机架（内部 2×4）+ 8 万能槽**；控制终端 = 容器/终端 | 中 |
@@ -395,11 +398,12 @@ MachineHelper.SetupBatterySlot(battery, item);
 | Import/Export Bus | HopperHelper 的点对点物流 | **网络导入/导出功能**（控制终端配置），绑定目标容器/机器；虚拟搬运；过滤器/优先级 | 中 |
 | Storage Bus | 容器适配器 | 当前不做独立 Storage Bus；网络导入/导出功能可绑定容器，按白名单索引/搬运 | 低-中 |
 | Interface / Level Emitter | 库存规则 | “保持 N 个”规则；低于阈值触发转移/合成 | 中 |
-| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置，Endpoint only）；全部走 Endpoint 真机器 ETA；模板是唯一白名单 | 高 |
+| Pattern Provider / Molecular Assembler | 机器 + `CraftingRecipe` + `MachineryTabs` | **3×3 模板控制器 + 2×1 模板**（5 页 17×10）；合成模板=输出+配方，过程模板=输入+输出白名单（只读原版屠宰设置，Endpoint/分馏服务）；Manual/Auto + `minQuality`；全部走真实机器/服务 ETA；模板是唯一白名单 | 高 |
+| ME Controller 能力页 | `aquascan` / `gene_scanner` / `plant_analyser` / `chem_scanner` / 2 滴管 / 3 量筒 | 独立 UI，几十个小格；无消耗、不占频道；插着解锁，拔掉暂停；化学精确计量/控温由控制器接管加热板 | 高 |
 | 生物自动化（水培/RAS/屠宰） | 原版 `MachineHydroponic` / `MachineRAS` / `MachineAutoButcher` | **Endpoint + Monitor view**：原版 cycle 照跑，网络只监控/供电/白名单角色；RAS 水预算 `Σ 组数 × 成体水需` 报警；无滤芯水循环（脏水→液体磁盘→ME 分馏服务→纯水回灌）；过程模板只决定投什么鱼，不改屠宰设置 | 高 |
-| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` / `uv_filter` / `aquascan` | **ME Fractionation Array 3×3 / 4×3 插件槽（网络液体服务）**：滤芯+UV+扫描+核心 · 收集/蒸发/蒸发/收集 · 净水×4；机器插件只读最终 stat，不跑原版 cycle；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；**分离额度=杂质 uL，蒸馏额度=实际蒸出体积**；质量因子 `1-0.5(1-q)^2`；先分离后蒸馏；鱼缸最高优先原地净化；水培补纯水；无实 IO/无 512L 水箱/无输出满；分离/蒸馏包分开 +15 kJ 自动买；每台 8 通道宽带总线 | 高 |
-| 鱼缸/水培服务 | 原版 `MachineRAS` / `MachineHydroponic` | 网络内鱼缸/RAS 自动注册；原地净化，杂质→水，不抽水；水培不净化，只补纯水到 40–100% 默认 90%；100% 不自动排水；自动买包强制开；不想自动别进机架/别插适配器 | 高 |
-| 化学成型 | 原版 `blender` / `heating_plate` / `evaporator` / `chem_finisher` / `chem_scanner` / `module_extractor` / `1ml_dropper` / `5ml_dropper` / 25/50/100ml 量筒 | **ME Chemical Infusion Array 3×3 / 4×3 实体工位**：1ml/5ml滴管+成分光谱仪+ME核心 · 25/50/100ml量筒+模组提取器 · 搅拌/加热/蒸发/成型各一；**仅蒸发器耗电/虚拟电池**；基础机械臂 100 单损耗、高级永久；滴管/量筒计量；上游仍需分馏服务；**不要求强化满**：0/1 加热板 bang-bang 可做 Oxymore 但慢，2+ 直接设温 5°C 步进，低强化=地摊货；每台 8 通道宽带总线 | 高 |
+| 水/液体精炼 | 原版 `water_purifier` / `evaporator` / `moisture_farm` | **ME Fractionation Array 3×3 / 2×4 内部（网络液体服务）**：8 个自由槽只放净水/蒸发；1 槽 1 ch，空槽 0，最多 8；机器插件只读最终 stat，不跑原版 cycle；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；**水模式分离额度=杂质 uL；化学/非水模式全额体积；蒸馏额度=蒸出体积**；质量因子 `1-0.5(1-q)^2`；鱼缸优先；水培补纯水；无实 IO/无 512L 水箱/无输出满；自动买包默认开、可关 | 高 |
+| 鱼缸/水培服务 | 原版 `MachineRAS` / `MachineHydroponic` | 网络内鱼缸/RAS 自动注册；原地净化，杂质→水，不抽水；水培不净化，只补纯水到 40–100% 默认 90%；100% 不自动排水；自动买包默认开、可关，关掉用完为止；不想自动别进机架/别插适配器 | 高 |
+| 化学成型 | 原版 `blender` / `heating_plate` / `evaporator` / `chem_finisher` / `chem_scanner` / `module_extractor` / `1ml_dropper` / `5ml_dropper` / 25/50/100ml 量筒 | **不再需要化学灌注阵列**：Blender/Heating/Evaporator/Chem Finisher 作为独立 Endpoint；ME Controller 能力页用光谱仪+2滴管+3量筒解锁精确计量/控温；0/1 加热板 T±2 滞回，2+ 设温 5°C 步进；第二台加热板并行；低强化=地摊货 | 高 |
 | Crafting CPU | 任务队列 | **订单队列 + 递归工单**；供能矩阵可即时完成虚拟周期；过程模板按真实机器 ETA 排产 | 高 |
 | Wireless Terminal | 手持物品 | 后期；便携终端物品，激活打开 UI；可加范围/电量 | 中 |
 | Subnetworks | 多网络 | 多个机架阵列/控制终端；PoE 端口/网络 ID 隔离 | 中 |
@@ -457,7 +461,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 > **Current decision（见 05）**：控制终端是 3×3 容器；Storage 页虚拟列表，Inbox 页真实容器（原生拖放/快捷移动）；0 库存只有模板命中才显示幽灵；过程模板点击排产，不瞬间出产物。
 
 - **Control Terminal 3×3**：Storage / Inbox / Daily Plan 三页；Storage 是虚拟索引，Inbox 是真实容器，扔进来立刻转移。
-- **ME Adapter 两态**：Endpoint 默认（真实机器，role/tag/manual mapping）；Read-only 兜底；不做虚拟产线；Planner 只读规划；Monitor 是 Endpoint UI tab。
+- **ME Adapter 三拨挡**：供电/物流/控制；默认仅供电；物流/控制手动开，不可用灰掉；真实机器 role/tag/manual mapping；不做虚拟产线；Planner 只读；Monitor 是 UI tab。
 - **Rack 3×3**：内部 2×4 个 `GameSlotInventory`，`MachineryPanelRow.SetColumns(2)`，复用工具箱槽底/标签。
 - **Disk Drive 3×3**：内部 2×8 磁盘槽；Pattern Controller 3×3：`MachineryTabs` 5 页，每页 `GameGridInventory(17,10)`，参考 `StorageExpansionHelper`/`storage_bay_large`；模板 2×1。
 - **Monitor 页**：水培/RAS 只读概况 + 报警（水预算/废物/过滤或分离循环/饲料/电力）；手动设置回原版机器窗口；不做复杂 Farm 控制台。
@@ -476,11 +480,11 @@ MachineHelper.SetupBatterySlot(battery, item);
 
 ### 4.5 频道
 
-- **1 个已连接 ME 适配器（Endpoint/Read-only）= 1 通道**；常规线 **8**，致密线 **32**。
-- **1 台组合式机器固定占用 8 通道（宽带总线，Wideband Bus）**：内置端口，不需要 8 个 ME 适配器；8 通道整块分配，不足则阵列离线；内部 12 个固定槽不单独计频道。宽带总线不是新线缆，普通/致密线仍按 8/32。
-- 机架扫描内部适配器数量申请总量；按槽位顺序 0→7 点亮；没抢到按未插处理（不虚拟/不监控/不服务）。
-- 模板控制器**不占频道**，只计网络负载；电力/物流负载另算。
-- 不做“无限但贵”；频道是硬上限，鼓励加线/加控制器/阵列；普通线 8 = 1 台组合式机器，致密线 32 = 4 台。
+- **1 个已连接 ME 适配器 = 1 通道**（仅供电也算）；常规线 **8**，致密线 **32**。
+- **分馏阵列每台净水/蒸发插件 1 ch，空槽 0，最多 8 ch**；阵列自带端口；普通线 8 = 一台满配，致密线 32 = 四台满配；没抢到频道的槽位离线。
+- 机架扫描内部适配器数量申请总量；按槽位顺序 0→7 点亮；没抢到按未插处理（不物流/不监控/不服务）。
+- ME Controller 能力页与模板控制器**不占频道**，只计网络负载；电力/物流负载另算。
+- 不做“无限但贵”；频道是硬上限，鼓励加线/加控制器/阵列。
 
 ### 4.6 自动合成：合成模板 + 过程模板 + 订单
 
@@ -510,7 +514,7 @@ MachineHelper.SetupBatterySlot(battery, item);
 ### 4.8 第三方模组观察（只读研究）
 
 - **Water Tower 1.0.3**：16×18 `GameGridInventory` 工作区，只允许集水器/净水器/充能器/电源类机器；按真实机器的 `GetOutputVolume`/`GetOutputQuality`、`MachinePurifier.PurifyContainer`、`PowerHelper.CanDrawPowerSource/DrawPowerSource`、模块/耐久结算；涡轮加速器用 Harmony postfix 触发额外 cycle；夜间结算。
-- 它证明“机器塞机器 + 真实效率”可行；但它是自由 16×18 网格、夜间批处理、带 `IMBA` 平衡开关，并声明 `reflection-external`。我们的分馏阵列改成 **ME 网络液体服务**：固定 4×3 插件槽、无 512L 水箱/实 IO、插件只读最终 stat、双额度、鱼缸优先、自动买包；每台 8 通道宽带总线。不复制其代码/素材/平衡开关，也不采用动态反射实现。
+- 它证明“机器塞机器 + 真实效率”可行；但它是自由 16×18 网格、夜间批处理、带 `IMBA` 平衡开关，并声明 `reflection-external`。我们的分馏阵列改成 **ME 网络液体服务**：3×3 / 2×4 内部、8 槽只放净水/蒸发、无 512L 水箱/实 IO、插件只读最终 stat、双额度、鱼缸优先、自动买包可关；每台插件 1 ch。不复制其代码/素材/平衡开关，也不采用动态反射实现。
 
 ---
 
@@ -530,11 +534,13 @@ ME Controller (network root)
 
 | 组件 | 职责 | 持久化 |
 |---|---|---|
-| `NetworkService` | 重建 PoE 图；扫描机架/适配器/组合式机器；频道分配（含 8 通道宽带总线）；dirty/index | 从物品 tag/modData 重建 |
-| `RackService` | 8 bays；机器进出；Endpoint/Read-only 识别；10 tps 对账 | 机架物品 `contentWindow` |
-| `EndpointService` | 角色发现（tags/panel role/vanilla profile/manual map）；push/pull/power/monitor；真实机器 cycle | 适配器 tag + 缓存 |
-| `FractionationService` | 分馏阵列 4×3 插件槽；只读插件最终 stat；双额度（杂质 uL/蒸出体积）；日租；鱼缸优先原地净化；水培补纯水；自动买包；无实 IO/无水箱 | 阵列 `contentWindow` + 插件 tag/缓存 |
-| `ChemicalInfusionService` | 灌注阵列 4×3 实体工位；真实机器/工具/阶段；蒸发器虚拟电池；阶段 `cycleKJ`；0/1 加热板 T±2 bang-bang，2+ 设温 5°C；不要求强化满 | 阵列 `contentWindow` + 子机 tag/缓存 |
+| `NetworkService` | 重建 PoE 图；扫描机架/适配器/分馏槽位；频道分配；dirty/index | 从物品 tag/modData 重建 |
+| `RackService` | 8 bays；机器进出；三拨挡适配器识别；10 tps 对账 | 机架物品 `contentWindow` |
+| `EndpointService` | 角色发现（tags/panel role/vanilla profile/manual map）；供电/物流/控制三开关；真实机器 cycle | 适配器 tag + 缓存 |
+| `ControllerCapabilityService` | ME Controller 能力页；扫描仪/滴管/量筒无消耗、不占频道；化学精确计量/控温解锁 | Controller tag/modData |
+| `FractionationService` | 分馏阵列 3×3 / 2×4、8 槽；只读插件最终 stat；水模式杂质 / 非水全额 / 蒸出体积；日租；鱼缸优先；水培补纯水；自动买包可关 | 阵列 `contentWindow` + 插件 tag/缓存 |
+| `ChemicalPipelineService` | Blender/Heating/Evaporator/Chem Finisher 独立 Endpoint；Controller 温控/计量；第二台加热板并行 | Endpoint tag/缓存 |
+| `SharedButcherService` | 不装内置屠宰器；共享 Auto Butcher；活鱼 Endpoint 直搬；死鱼/未受精卵清理后续 | 共享 butcher tag/缓存 |
 | `RoleDiscovery` | 反射只兜底枚举隐藏 inventory；不猜语义、不调用加工 | 缓存/日志 |
 | `DiskStore` | 固体/液体条目；字节/索引；实例快照；事务；幽灵门控 | 磁盘 tag / 自定义 feature |
 | `PatternIndex` | 合成/过程模板；输出签名去重；5 页扫描 | 模板物品 `itemState` tags |
@@ -549,7 +555,7 @@ ME Controller (network root)
 ### 5.2 Tick 策略
 
 - **不要每帧扫描全店**。`PlayerStore.FindAllItem()` 会遍历多个根容器，物品多时开销大。
-- **10 tps 只对账带适配器的机器**：Endpoint 搬白名单角色；Read-only 不动；Planner 只读预测；不碰活鱼/生长中植物/模块/工具；按 tick 预算分批/round-robin。
+- **10 tps 只对账带适配器的机器**：物流开启的适配器搬白名单角色；仅供电/Read-only 不动；Planner 只读预测；不碰活鱼/生长中植物/模块/工具；按 tick 预算分批/round-robin。
 - 触发刷新：
   - `OnGameLoadedNormal`：重建网络；
   - `OnShutterOpenedLate` / `OnShutterClosedEarly`：日边界刷新；
@@ -607,23 +613,23 @@ ME Controller (network root)
 
 1. 确认 Rev13 实际 API 与 `mod-scan`；清单 `<GameVersions><Version>0.46</Version></GameVersions>`。
 2. 3×3 机架 + 8 个 `GameSlotInventory` + `MachineryPanelRow.SetColumns(2)`。
-3. ME Adapter 两态：Endpoint 默认 / Read-only 兜底；Planner 只读规划；`power_source_item` buffer 从能源柜补电。
+3. ME Adapter 三拨挡：供电/物流/控制；默认仅供电；物流/控制手动开；`power_source_item` buffer 从能源柜补电。
 4. Endpoint 发现：机器 item 上 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → 原版 profile → 手动映射；反射只兜底枚举、不猜语义。
 5. 虚拟磁盘：`SaveItemNode` tags + 自定义 `itemFeatures`/子物品快照，读回校验。
 6. Pattern Controller：`MachineryTabs` 5 页 + `GameGridInventory(17,10)`；验证 mod 程序集可直接引用，否则自定义 tab UI。
 7. Ghost/Inbox 事务：先写盘后删、失败保留、Alt/Ctrl 行为。
-8. 10 tps 对账：只扫适配器机器，量测性能；分批/round-robin；组合式机器由自身 10 tps 调度，不走适配器扫描。
-9. 排产/加急：夜间 0 加急费、基础电力照扣；白天 +15 kJ/周期；`cycleKJ` 实时读机器，升级/模块后重算；Endpoint 真实机器 + Planner 只读预测；分馏服务例外，走双额度/日租/自动买包，不收 15 kJ 常规加急。
+8. 10 tps 对账：只扫适配器机器，量测性能；分批/round-robin；分馏服务由自身 10 tps 调度，不走适配器扫描。
+9. 排产/加急：夜间 0 加急费；早上未完成默认 15 kJ/加速 cycle（config 可关）；`cycleKJ` 实时读机器；Endpoint 真实机器 + Planner 只读预测；分馏服务例外，走双额度/日租/自动买包，不收 15 kJ 常规加急。
 10. Monitor：水培/RAS 槽位、RAS 水预算（`组数 × 成体水需`）、报警。
 11. 过程模板触发：`InitDropOnButcher`/`ButcherDropped` vs `onCycleEndLate` `Run`。
-12. 无滤芯水循环：RAS 脏水 → 液体磁盘 → ME Fractionation service（3.7.1）→ 纯水回灌。
-13. 化学灌注：4×3 实体工位（3.7.2）；机械臂 100 单/高级永久；滴管/量筒计量；1 搅拌 + 1 加热 + 1 蒸发 + 1 成型；只有蒸发器耗电/虚拟电池；**不要求强化满**；0/1 加热板 T±2 滞回可做 Oxymore 但慢，2+ 设温 5°C 步进；Chem Finisher 评级不变。
-14. 宽带总线：组合式机器每台固定 8 通道，整块分配；普通线 8 / 致密 32；内部槽不单独计；不足则离线。
-15. 真实子机产能：读 performance/efficiency/quality、模块、耐久；化学灌注用 `cycleKJ`；水分收集器按原版共享空气规则；空槽/损坏/没电时实际降级或停机。
-16. 分馏服务：插件只读最终 stat；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；分离额度=杂质 uL，蒸馏额度=蒸出体积；质量因子 `1-0.5(1-q)^2`；鱼缸优先原地净化；水培补纯水；自动买包；无实 IO/无水箱。
-17. 鱼缸：网络内自动注册；原地改液体 tag（杂质→水），不抽水；安全阈值/满纯；自动买包；确认 `MachineRAS`/鱼缸容器 API。
+12. 水循环：RAS 脏水 → 液体磁盘 → ME Fractionation service（3.7）→ 纯水回灌；无滤芯。
+13. 化学流水线：取消化学灌注阵列；Blender/Heating/Evaporator/Chem Finisher 独立 Endpoint；Controller 化学解锁；0/1 加热板 T±2 滞回可做 Oxymore 但慢，2+ 设温 5°C 步进；第二台加热板并行。
+14. 频道：ME 适配器 1 ch（仅供电也算）；分馏每台插件 1 ch，空槽 0，最多 8；普通线 8 / 致密 32；不足则槽位离线。
+15. 真实子机产能：读 performance/efficiency/quality、模块、耐久；化学流水线用 `cycleKJ`；水分收集器按原版共享空气规则；空槽/损坏/没电时实际降级或停机。
+16. 分馏服务：8 槽只放净水/蒸发；插件只读最终 stat；每插件虚拟电池=日耗电（最低 1 kJ），总和=日租；水模式分离额度=杂质 uL，化学/非水模式全额体积；蒸馏额度=蒸出体积；质量因子 `1-0.5(1-q)^2`；鱼缸优先；水培补纯水；自动买包默认开/可关；无实 IO/无水箱。
+17. 鱼缸：网络内自动注册；原地改液体 tag（杂质→水），不抽水；安全阈值/满纯；自动买包默认开/可关；确认 `MachineRAS`/鱼缸容器 API。
 18. 水培：纯水补充 API；目标 40–100% 默认 90%；100% 不自动排水；不净化水培水。
-19. 化学温度：0/1 加热板 T±2 滞回；2+ 设温 5°C；10 tps；Oxymore 45–55°C；低强化地摊货/ME 纯度分开；不要求强化满。
+19. ME Controller 能力页：独立 UI 几十格；4 扫描仪 + 2 滴管 + 3 量筒；无消耗/不占频道；化学精确计量/控温；拔掉暂停。
 
 ### 里程碑
 
@@ -649,7 +655,7 @@ M0–M5 见 05 §8；不要在本文重复维护两套阶段表。
 | 端点发现失败 | 找不到输入/输出，机器无法自动化 | tags/role/vanilla profile/manual mapping；未知机器 Read-only；反射只兜底 |
 | 反射猜语义 | 跨版本/跨模组崩 | 反射只枚举 inventory，不推断角色、不写私有字段；角色靠 tag/role/manual map |
 | 能耗固化 | 机器强化后少扣/多扣电 | 配方卡不存死；执行/预测实时读机器 `cycleKJ` |
-| 无滤芯水循环过载 | 分离机处理不过来/没电 | Monitor 报分离循环状态；滤芯保留为后备 |
+| 水循环过载 | 分馏处理不过来/没电/额度耗尽 | Monitor 报分离循环状态；买包、加电或排队；不回到滤芯 |
 | 命名冲突 | 玩家混淆 | 游戏内用 “ME 网络”，避免和 Wild's Network 混淆 |
 | 版本错配 | 调用 Rev14 API 崩溃 | 按第 0 节验证；用反射探测；README 写明目标版本 |
 | 第三方仓库许可 | 法律问题 | 不复制 AE2 代码/游戏反编译代码；参考只做链接 |
@@ -735,7 +741,7 @@ ProbablyAppliedEnergistics2/
 
 > 已定事项与完整决策记录见 [`05-current-design-decisions.md`](05-current-design-decisions.md) 第 10 节；这里只留开放项。
 
-1. **分馏服务参数**：基础分离额度（杂质 uL）/基础蒸馏额度（蒸出 uL）；质量因子加权；A/B 回收模组槽映射；鱼缸安全阈值/满纯；水培补水 API/阈值；网络状态页信息层级；液体索引满时事务回滚；不能创造物质或无限水。
+1. **分馏服务参数**：基础分离额度（水按杂质 uL / 非水全额 uL）/基础蒸馏额度（蒸出 uL）；质量因子加权；8 槽蒸发器回收模组折算；鱼缸安全阈值/满纯；水培补水 API/阈值；网络状态页信息层级；液体索引满时事务回滚；不能创造物质或无限水。
 2. **磁盘强化配方**：每级用哪些游戏材料、是否需要高科技电子/模块。
 3. **模板获取/编码成本**：空白模板配方、编码是否耗电/耗时、模板控制器自身造价。
 4. **Monitor 自动维护阈值/默认开关**：固定阈值基础维护的数值，是否给玩家总开关。
@@ -743,7 +749,7 @@ ProbablyAppliedEnergistics2/
 6. **屠宰触发方式**：`InitDropOnButcher`/`ButcherDropped` 与宿主 `onCycleEndLate` `Run` 哪条是主路径。
 7. **动物笼服务口**：动物笼没有电池槽，MVP 不做，后续加专用服务口或笼子适配方式。
 8. **Container Endpoint（Storage Bus 等价）**：是否用 1×1 Storage Link 让网络索引真实容器（不搬物品）；MVP 不做，后续评估。
-9. **ME 化学灌注阵列换算**：机械臂基础 100 单损耗/高级永久；1ml/5ml 滴管 + 25/50/100ml 量筒计量；1 搅拌 + 1 加热 + 1 蒸发 + 1 成型；仅蒸发器耗电并生成虚拟电池；核心增益/每单总 kJ 待定。
+9. **化学流水线/控温**：独立 Blender/Heating/Evaporator/Chem Finisher 的 input/output 映射；Controller 化学解锁后的精确计量/温控；0/1 与 2+ 加热板实测；第二台加热板并行；15 kJ/cycle 早上补完成 config；质量不达标罕见文案。
 10. **固相纯度分离设备**：旧“0–100 固体纯度原子拆分”已从分馏服务移出；梦尘/奥克莫吸走液体化学链，不是固相；另开设备或删掉待定。
 
 ---
