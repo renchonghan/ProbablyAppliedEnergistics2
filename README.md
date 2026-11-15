@@ -1,41 +1,72 @@
 # 可能是应用能源2 / Probably Applied Energistics 2
 
-An AE2-inspired storage & automation mod for **Probably Stolen** — currently in the research / design phase.
+> 给《深空当铺 / Probably Stolen》的 AE2 风格机架式仓储、物流与订单自动化模组。
+>
+> 目前处于**研究与设计阶段**，还没有可玩的模组。
+>
+> 非官方粉丝项目，与 Questing Goose Studio、tinyBuild、Applied Energistics 团队无关。
+>
+> **中文在前；English below. 英文部分是精简镜像，完整设计以 [05](docs/05-current-design-decisions.md) 为准。**
 
-> Unofficial fan project. Not affiliated with Questing Goose Studio, tinyBuild, or the Applied Energistics team.
+## 中文
 
-## Status
+### 状态
 
-- **Research & design only** — there is no playable mod yet.
-- Current target: **Probably Stolen 100-Rev13** (`Application.version = 0.46D`).
-- The community modding docs track **100-Rev14 beta**; some documented APIs are not present in the installed build. See [the feasibility doc](docs/03-modding-api-feasibility.md#0-先看这一节文档版本--安装版本).
-- **Current design:** 3×3 rack (2×4 internal bays = 8 universal slots) / 3×3 controller / terminal / power module / disk drive + 1×1 PoE cables + disk-based virtual storage + order-based autocrafting. No freight/item pipes. **The network is a bus, not a factory** — players build the machines, farms, water/feed/filter loops, and power lines; the network stores, moves, schedules, powers, and monitors. Machines store as inert instances; a rack machine with a **ME Adapter** (non-rechargeable) is an **Endpoint** by default — the real machine runs its vanilla cycle, while the network discovers slot roles via tags / `MachineryPanel` roles / a vanilla profile / manual mapping, then pushes inputs, pulls outputs, powers, and monitors. There is **no virtual production**: every item must be produced by a real Endpoint machine, and every liquid fraction must come from the fractionation service processing real network fluids. A read-only **Planner** computes materials/cycles/live `cycleKJ`/ETA for orders but never outputs items. **Read-only** is the fallback for machines without safe roles. **Monitor** is an Endpoint UI tab, not a separate profile. Endpoint reconciliation runs at **10 tps** (half of MC's 20), scanning only attached adapters with a budgeted round-robin. Discovery order: machine-item role-map tags (`ME_ENDPOINT_ROLE_MAP_STRING`) → `MachineryPanel` roles → vanilla profiles → manual mapping → `ModReflect`/literal reflection for hidden inventories; reflection never infers semantics. The ME power cabinet (16 battery slots + 1 converter slot; 255 → 65,535 kJ) charges once per day after bills via a Current Converter (daily kJ; normal batteries are online backup and can charge 1/4 of capacity per day; infinite battery has no real-time capacity — only a daily output rating (base 12, +10 per upgrade, uncapped) scanned at settlement, no caching; disposable/contraband batteries are never recharged). The power forecast predicts next-day demand first; settlement order is infinite battery → converter gap → cabinet → batteries (1/4 capacity or full), and the actual grid draw is billed the next day. A 3×3 **Pattern Controller** stores **2×1 pattern items** across five 17×10 tabs (the Extended Storage Bay layout); patterns are either crafting patterns or **processing patterns** (e.g. butcher patterns that respect the vanilla butcher settings without modifying them). Crafting-template night batches add **no rush fee** (base power still applies); daytime boosts cost an extra **15 kJ per cycle** (Turbo Booster parity). Process outputs click-to-queue a real-machine job with ideal vs rush (minimum-input) modes. Hydroponic/RAS monitors show water/nutrient/feed/filter-or-separator-loop/power and an RAS water budget that forecasts fry growth using group count × adult water need — the overstock alarm. A filterless RAS loop drains dirty water to fluid disks, runs it through a powered **ME Fractionation Array** in real time, and returns pure water. The fractionation array is a **network liquid-processing service**, not a physical liquid machine: machine items are stat plugins, not vanilla cycles; daily rent is the sum of each plugin's final daily power (1 kJ floor); separation quota is charged by impurity uL and distillation quota by actual evaporated volume; quality applies the quadratic `1-0.5(1-q)^2` multiplier; fish tanks are auto-purified in place (impurity → water) and hydroponics are topped up with pure water. There is no 512 L tank, no real I/O, and no “output full”; shortages auto-buy separate +15 kJ flow packs. A **ME Chemical Infusion Array** packages the vanilla chemistry chain in a 4×3 physical workstation frame (1 mL/5 mL droppers, 25/50/100 mL cylinders, composition spectrometer, module-extractor arm, ME Core; blender, heating plate, evaporator, chem finisher); only the evaporator draws power and gets a virtual battery. It accepts any upgrade level: 0/1 heating plates use bang-bang ±2°C control (Oxymore works, just slower/coarser), 2+ plates set a 5°C-step target, and low blender/finisher upgrades produce high-impurity “street” output stored by purity. Both are **same-tier 3×3 combination devices** (fractionation is a service; chemical infusion is a physical machine), not rack modules. Each occupies a fixed **8-channel wideband bus**; internal slots do not consume separate channels. Only patterned outputs remain as ghost entries at zero stock, while untemplated items disappear when exhausted. Hero tools include a 3×2 fluid transfer gun. See [05 — Current design decisions](docs/05-current-design-decisions.md).
+- **仅研究与设计**，尚无 playable mod。
+- 目标版本：**Probably Stolen 100-Rev13**（`Application.version = 0.46D`）。
+- 社区模组文档跟踪的是 **100-Rev14 beta**；安装版缺少部分文档 API。详见 [03 可行性文档](docs/03-modding-api-feasibility.md)。
+- 核心硬件：**3×3 机架**（内部 2×4 = 8 个万能槽）/ 3×3 控制器 / 控制终端 / 模板控制器 / 电力模块 / 磁盘驱动器 + **1×1 PoE 线缆**。
+- 不做实体货运、物品管道、物品飞行；线缆只带电、数据、物流调度。
+- **网络是总线，不是工厂**：玩家搭机器、农场、水/饲料/滤芯循环和电力线；网络负责存储、搬运、排产、供电、监控。
+- **没有虚拟生产**：物品必须来自真实 Endpoint 机器；液体分馏必须来自分馏服务处理真实网络液体。
+- 机架机器入库是停机 Instance；进机架 + 插 **ME Adapter** + 频道连接才会成为 **Endpoint**（真实机器跑原版 cycle）；找不到安全角色时 **Read-only**。
+- **Planner** 只读规划材料、周期、实时 `cycleKJ`、ETA，不产出物品。
+- **10 tps 对账**（MC 20 tps 的一半）：只扫已连接适配器，按预算 round-robin；不扫全店。
+- **端点发现顺序**：机器 item 上的 `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → 原版机器 profile → 手动映射 → `ModReflect`/字面反射兜底；反射只枚举，不猜语义。
+- **电力柜**：16 电池槽 + 1 电流转换器槽；255 → 65,535 kJ；每天付账后只充一次；普通电池在线备电、日结单块最多 1/4；无限电池只有日输出额度（基础 12，+10/次，无上限），结算读一次不缓存；一次性/违禁电池不充电。
+- **模板控制器**：3×3；5 页 × 17×10；**2×1 模板**；合成模板/过程模板；只有模板命中的输出在 0 库存时显示幽灵，其他耗尽即消失。
+- **分馏阵列 = ME 网络液体服务**：3×3 外观 / 4×3 插件槽；无 512L 水箱、无实 IO、无“输出满”。
+  - 机器插件只读最终 stat，不跑原版净水/蒸发 cycle。
+  - 每插件虚拟电池容量 = 该机器最终日耗电（最低 1 kJ），总和 = 日租；效率无硬上限。
+  - **分离额度**按处理掉的杂质 uL 扣；**蒸馏额度**按实际蒸出体积扣；水被蒸出也算水。
+  - 质量因子 `1 - 0.5 × (1-q)^2`；q=0% → 0.5，50% → 0.875，100% → 1。
+  - 夜间扣日租/刷新额度/鱼缸最高优先/排单，剩余给白天；次日清零不结转。
+  - **鱼缸/RAS 原地净化**：杂质→水，不抽水；不够自动买包。水培不净化，只补纯水到 **40–100%，默认 90%**；100% 不自动排水，加矿物质需自己用量杯舀水。
+  - 分离/蒸馏补充包分开，`+15 kJ/包`，无限买，能量不足才停；自动买包强制开，不做 per-device 开关。
+  - 全局设置：`fish_tank_purity_target`、`hydroponic_water_target`；终端网络状态页是 UI 入口。
+- **化学灌注阵列 = 实体机器**：3×3 外观 / 4×3 真实工位；1ml/5ml 滴管、成分光谱仪、ME 核心 / 25/50/100ml 量筒、模组提取器 / 搅拌机、加热板、蒸发器、化学成型机。
+  - 只有蒸发器耗电并生成虚拟电池 max 65,535。
+  - **不要求强化满**：4 个 CHEM 模块 = 满强化，模块无等级；低搅拌/成型模块 → 高损耗/高杂质“地摊货”，ME 按纯度分开。
+  - **0/1 加热板**：不能设目标温度；按 T±2 滞回，UI 2/3 档低/高交替，低于 T−2 加热、到 T 关闭、超 T+2 关闭等自然降温；可做 Oxymore，只是慢/粗。
+  - **2/3/4 加热板**：直接设 `CURRENT_TARGET_TEMP`，5°C 步进；2/3 只是速度差异，4 最快；10 tps，无 PID。
+- 分馏与化学灌注同级、同 3×3 footprint、都在机柜阵列外部，不能塞机架；每台固定 **8 通道宽带总线**，内部槽不单独计频道。
+- Hero tool：**3×2 移液枪**。
 
-## Documents
+### 文档
 
-| Doc | Contents |
+| 文档 | 内容 |
 |---|---|
-| [01 — AE2 gameplay](docs/01-ae2-gameplay.md) | ME networks, energy, channels, storage cells, terminals, buses, autocrafting, subnetworks, P2P/quantum/spatial, progression, source map |
-| [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent/mortgage, customers, trading, appraisal, contraband/inspection, items/containers, storage bays, machines/power, afterhours, progression, story/endings |
-| [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API inventory, Rev13 vs Rev14 differences, AE2 → game mapping, current storage/UI/energy/network architecture, Phase 0 checklist, risks, repo structure |
-| [04 — Project brief](docs/04-project-brief.md) | One-page current scope, MVP, non-goals, milestones |
-| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative current design:** 3×3 racks (2×4 internal bays = 8 universal slots) / 3×3 controller / terminal / pattern controller (five 17×10 tabs) / power module / disk drive, endpoint-first ME adapter (Endpoint/Read-only; Planner read-only), crafting/processing patterns, 2×1 patterns, PoE cables, disk-based virtual storage, template-gated ghost items, same-tier ME Fractionation Array and ME Chemical Infusion Array (both 4×3 fixed slots, 8-channel wideband bus each; fractionation is a network liquid service with plugin stats, dual impurity/evaporation quotas, daily rent, fish-tank purification, hydroponic pure-water top-up and automatic flow packs), hydroponic/RAS monitors with overstock alarms, Inbox page, daily plan/autocrafting, 3×2 fluid transfer gun, milestones, technical hooks |
-| [06 — Vanilla production atlas](docs/06-vanilla-production-chains.md) | Machine atlas, water/food/chem/aquaculture/husbandry/gun/wine chains, crafting/economy, night cycle, and the “network is a bus, not a factory” constraints |
-| [07 — Vanilla item atlas](docs/07-item-atlas.md) | Item directory counts, measuring containers, key machines/modules/tools, and “use what the game already has” design notes |
+| [01 — AE2 玩法](docs/01-ae2-gameplay.md) | ME 网络、能量、频道、存储、终端、总线、自动合成、子网、P2P/量子/空间、进度 |
+| [02 — 游戏玩法](docs/02-game-gameplay.md) | 日循环、房租/贷款、顾客、交易、鉴定、违禁品/检查、物品/容器、机器/电力、夜间营业、剧情 |
+| [03 — 模组 API 与可行性](docs/03-modding-api-feasibility.md) | 已验证 API、Rev13 vs Rev14、AE2 → 游戏映射、当前架构、Phase 0 清单、风险、仓库结构 |
+| [04 — 立项一页纸](docs/04-project-brief.md) | 当前范围、MVP、非目标、里程碑 |
+| [05 — 当前设计决策](docs/05-current-design-decisions.md) | **权威设计**：机架/终端/模板/电力/磁盘、Endpoint/Read-only、Planner、分馏服务、化学灌注、Monitor、订单、M0–M5 |
+| [06 — 原版生产链](docs/06-vanilla-production-chains.md) | 机器、水/食物/化学/水产/畜牧/枪/酒、合成/经济、夜间循环、“网络是总线不是工厂” |
+| [07 — 原版物品总表](docs/07-item-atlas.md) | 目录数量、量筒/滴管、关键机器/模块/工具、“物尽其用”设计说明 |
 
-## Key findings
+### 关键结论
 
-1. **Version mismatch.** The installed build reports `100-Rev13` / `0.46D`; the community docs are `100-Rev14` beta. APIs such as `ModHelper.AddEnding`, `GetGameVersion`, `AddDebugPanel`, and window control are not in the installed assembly.
-2. **No world block grid — but physical racks/cables are still possible.** Machines and containers are items. The current design uses **3×3 rack items (2×4 internal slots) + 3×3 controller/terminal/power/disk-drive items + 1×1 PoE cable items** placed in the base grid, not a block world. Cables carry power, data, and logistics scheduling — **not items**.
-3. **Items are unique instances.** Same-name items can differ by condition, authenticity, contents, and features. Current design uses **separate solid and fluid disks** (16 indexes / 256 bytes base, upgradeable with materials to 512 / 65,535 bytes; contents preserved; capacities/indexes never mix). Complex items (guns/containers) are **disassembled on ingest**; atomic/sealed items are refused and must be kept in real boxes. Items with durability or variable state (tools, filters, batteries, infinite batteries, container contents, fixed-freshness Bloomberries for wine) are stored as **instances**, one index each, and are never merged. Machines can be stored as inert instances; a rack machine with a **ME Adapter** becomes an **Endpoint** — the real machine keeps its vanilla cycle while the network moves whitelisted items, powers, and monitors it; **Read-only** is the fallback, and machines without the adapter are pure placement. This keeps disk snapshots to leaf items or explicit machine instances instead of arbitrary item trees.
-4. **Templates gate ghosts.** The 3×3 Pattern Controller reuses the Extended Storage Bay's 5-tab UI (17×10 per page); 2×1 pattern items encode either a crafting recipe or a processing/butcher job (vanilla settings read-only). Only patterned outputs stay visible as ghost entries at zero stock; everything else is deleted when exhausted, and ghosts consume no disk index/bytes.
-5. **Biology is monitored, not virtualized.** Hydroponic/RAS machines keep their vanilla cycles; the Endpoint only powers, services whitelisted roles, and alarms, while Monitor is just a view. The RAS monitor forecasts `Σ groupCount × adult water need` against the fixed 12 L tank, so fry overstock is flagged before they grow into a water deficit. RAS can also run filterless: dirty water → fluid disk → powered **ME Fractionation service** → pure water back, so filters are optional. Live fish/fry/growing plants are refused by virtual storage.
-6. **Compatibility is endpoint-first.** Any machine whose inventory is reachable can join via machine-item role-map tags (`ME_ENDPOINT_ROLE_MAP_STRING`), `MachineryPanel` roles, a vanilla profile, or manual mapping — no per-machine proxy. Reflection only helps enumerate hidden inventories, never infers slot semantics. A container endpoint (Storage Bus equivalent) is a later extension.
-7. **The network is a bus, not a factory.** There is no virtual fabrication: every output requires a real Endpoint machine running its vanilla cycle. A read-only Planner computes material/cycle/energy/ETA forecasts for orders but never creates items. Players still build the production lines, farms, water/feed/filter loops, and power.
+1. **版本不匹配**：安装版是 `100-Rev13` / `0.46D`，社区文档是 `100-Rev14` beta；`ModHelper.AddEnding`、`GetGameVersion`、`AddDebugPanel`、窗口控制等 API 在安装版不存在。
+2. **没有世界方块网格，但可以有机架/线缆物品**：机器和容器都是物品；当前用 3×3 机架 + 3×3 核心设备 + 1×1 PoE 线缆放在基础背包网格，不做方块世界。线缆不运物品。
+3. **物品是唯一实例**：同名物品可能因状况/真伪/内容/特性不同；固体/液体磁盘分离，实例一件一索引，不合并；复杂物品入库拆解，原子/密封/任务物品拒绝。
+4. **模板门控幽灵**：模板控制器复用 5 页 17×10 布局；2×1 模板记录合成或过程；只有模板命中的 0 库存输出显示幽灵，其余耗尽删除。
+5. **生物只监控，不虚拟化**：水培/RAS 保持原版 cycle；RAS Monitor 按 `组数 × 成体水需` 预测爆缸；无滤芯水循环走液体磁盘 → 分馏服务 → 纯水回灌。
+6. **兼容是 Endpoint-first**：任何可达 inventory 的机器都能通过 role-map tag / `MachineryPanel` role / 原版 profile / 手动映射接入；反射只枚举隐藏库存，不猜语义。
+7. **网络是总线不是工厂**：没有虚拟制造；每个物品需要真实 Endpoint 机器，每个液体分馏需要分馏服务处理真实网络液体；Planner 只做只读预测。
 
-## Repository layout
+### 仓库结构
 
-```
+```text
 .
 ├── README.md
 ├── docs/
@@ -56,30 +87,130 @@ An AE2-inspired storage & automation mod for **Probably Stolen** — currently i
 └── .gitignore
 ```
 
-The mod source (`src/`), assets, `manifest.xml`, and build scripts will be added once the design is settled.
+模组源码（`src/`）、素材、`manifest.xml` 和构建脚本会在设计定稿后加入。
 
-## Local reference caches
+### 本地缓存与公开索引
 
-The investigation used local-only reference material that is **not committed**:
+本地研究缓存**不提交**：
 
-- AE2 source + official guidebook (`reference/applied-energistics-2/`, LGPL-3.0)
-- Community modding guide (`reference/probably-stolen-modding/`)
-- Decompiled `Assembly-CSharp.dll` (`reference/game-decompiled/`, local research only)
-- Game localization tables (`reference/localization/`, local research only)
-- Generated detailed item catalog with names/descriptions/tags (`reference/item-catalog-detailed.md`, `reference/item-catalog.json`; contains localization text, do not publish)
-- Local decompile of the FaucetFilter Workshop mod for config/UI study (`reference/faucet-filter-decompiled/`; study only, do not copy code/assets)
-- Local decompile of the WaterTower Workshop mod for machine-in-machine/efficiency study (`reference/water-tower-decompiled/`; study only, do not copy code/assets)
+- AE2 源码 + 官方手册（`reference/applied-energistics-2/`，LGPL-3.0）
+- 社区模组文档（`reference/probably-stolen-modding/`）
+- 反编译 `Assembly-CSharp.dll`（`reference/game-decompiled/`，仅本地研究）
+- 游戏本地化表（`reference/localization/`，仅本地研究）
+- 详细物品目录（`reference/item-catalog-detailed.md`、`reference/item-catalog.json`；含本地化文本，不发布）
+- FaucetFilter / WaterTower 的本地反编译研究缓存（只读，不复制代码/素材）
 
-Paths like `ModsDev/reference/...` in the docs refer to that local cache. Do not publish the decompiled game code or localization tables. If you reuse AE2 code, comply with LGPL-3.0; a clean-room implementation is recommended.
+公开索引（已跟踪）：
 
-## Tracked research indexes
+- `ref/class-index.md`：类名/职责，无代码/本地化。
+- `ref/item-catalog.md` / `ref/item-catalog.json`：ID/目录/类型/tag/容量/价值，无本地化名称/描述。
+- 重新生成：`python -I tools/build_item_catalog.py`。
 
-- `ref/class-index.md` — class names and responsibilities only; no decompiled code or localization.
-- `ref/item-catalog.md` / `ref/item-catalog.json` — public item index with IDs, directories, types, tags, capacities, and values; no localized names/descriptions.
-- Detailed catalog remains local-only at `reference/item-catalog-detailed.md`; regenerate both outputs with `python -I tools/build_item_catalog.py`.
+不要发布反编译游戏代码或本地化表。若复用 AE2 代码，遵守 LGPL-3.0；推荐 clean-room 实现。
 
-## Naming
+### 命名
+
+- 仓库：`ProbablyAppliedEnergistics2`
+- 显示：**可能是应用能源2 / Probably Applied Energistics 2**
+- 代码命名空间：`ProbablyAppliedEnergistics2`（保留完整 AE2 名称，不单写“AE”）
+
+---
+
+## English
+
+> Condensed mirror. The authoritative design is [05](docs/05-current-design-decisions.md).
+
+### Status
+
+- **Research and design only**; no playable mod yet.
+- Target: **Probably Stolen 100-Rev13** (`Application.version = 0.46D`).
+- Community docs track **100-Rev14 beta**; some documented APIs are absent from the installed build. See [03](docs/03-modding-api-feasibility.md).
+- **3×3 rack** (2×4 = 8 universal slots) / 3×3 controller / terminal / pattern controller / power module / disk drive + **1×1 PoE cables**.
+- No freight, item pipes, or flying items. Cables carry power, data, and logistics scheduling only.
+- **The network is a bus, not a factory**: players build machines, farms, water/feed/filter loops, and power lines; the network stores, moves, schedules, powers, and monitors.
+- **No virtual production**: items require a real Endpoint machine; liquid fractions require the fractionation service processing real network fluids.
+- Rack machines are inert instances until placed in a rack with a **ME Adapter** and an allocated channel; then they become an **Endpoint** running the real vanilla cycle. **Read-only** is the fallback.
+- **Planner** forecasts materials, cycles, live `cycleKJ`, and ETA but never outputs items.
+- **10 tps** adapter reconciliation; budgeted round-robin; no full-store scans.
+- Discovery: `ME_ENDPOINT_ROLE_MAP_STRING` → `MachineryPanelRow` role → vanilla profile → manual map → `ModReflect`/literal reflection; reflection enumerates inventories, never infers semantics.
+- **Power cabinet**: 16 battery slots + 1 converter slot; 255 → 65,535 kJ; charged once per day after bills. Infinite batteries provide a daily output rating only (base 12, +10/upgrade), read once at settlement, not cached.
+- **Pattern Controller**: 3×3, five 17×10 tabs, **2×1 patterns**; crafting and processing patterns; only patterned outputs stay as ghosts at zero stock.
+- **Fractionation Array = ME network liquid service**: 3×3 / 4×3 plugin slots; no 512 L tank, no real I/O, no “output full”.
+  - Machine items are stat plugins; no vanilla purifier/evaporator cycles.
+  - Each plugin has a locked virtual battery equal to its final daily power (1 kJ floor); the array’s daily rent is the sum.
+  - **Separation quota** is charged by impurity uL; **distillation quota** by actual evaporated volume (water counts when evaporated).
+  - Quality factor `1 - 0.5 × (1-q)^2`.
+  - Night: pay rent, refresh quotas, fish tanks first, then scheduled jobs; remainder goes to daytime and is cleared next night.
+  - **Fish tanks/RAS are purified in place** (impurity → water, no pumping); auto-buy packs if short. Hydroponics are not purified; they are topped up with pure water to **40–100%, default 90%**; at 100% there is no auto-drain, so the player must remove water before adding minerals.
+  - Separate separation/distillation flow packs: **+15 kJ each**, unlimited while energy lasts; auto-buy is forced on, no per-device toggle.
+  - Global settings: `fish_tank_purity_target`, `hydroponic_water_target`; edited in the terminal’s Network Status page.
+- **Chemical Infusion Array = physical machine**: 3×3 / 4×3 workstations; 1/5 mL droppers, composition spectrometer, ME Core / 25/50/100 mL cylinders, module-extractor arm / blender, heating plate, evaporator, chem finisher.
+  - Only the evaporator consumes power and gets a virtual battery (max 65,535).
+  - **No full-upgrade gate**: 4 CHEM modules = full upgrade; modules have no tiers. Weak blender/finisher upgrades produce high-impurity “street” output stored by purity.
+  - **0/1 heating plates**: no target temp; use T±2 hysteresis, UI low/high (2/3) alternation, heat below T−2, stop at T, stop above T+2 and wait for natural cooling. Oxymore works, just slower/coarser.
+  - **2/3/4 heating plates**: set `CURRENT_TARGET_TEMP` directly in 5°C steps; 2/3 differ only in heating speed, 4 is fastest; 10 tps, no PID.
+- Both are same-tier 3×3 combination devices outside the rack; each uses a fixed **8-channel wideband bus**; internal slots do not consume separate channels.
+- Hero tool: **3×2 fluid transfer gun**.
+
+### Documents
+
+| Doc | Contents |
+|---|---|
+| [01 — AE2 gameplay](docs/01-ae2-gameplay.md) | ME networks, energy, channels, storage, terminals, buses, autocrafting, subnetworks, P2P/quantum/spatial, progression |
+| [02 — Game gameplay](docs/02-game-gameplay.md) | Day loop, rent, customers, trading, appraisal, contraband/inspection, items/containers, machines/power, afterhours, story |
+| [03 — Modding API & feasibility](docs/03-modding-api-feasibility.md) | Verified API, Rev13 vs Rev14, AE2 → game mapping, architecture, Phase 0 checklist, risks |
+| [04 — Project brief](docs/04-project-brief.md) | Scope, MVP, non-goals, milestones |
+| [05 — Current design decisions](docs/05-current-design-decisions.md) | **Authoritative design:** racks, terminal, patterns, power, disks, Endpoint/Read-only, Planner, fractionation service, chemical infusion, monitors, orders |
+| [06 — Vanilla production atlas](docs/06-vanilla-production-chains.md) | Machines, water/food/chem/aquaculture/husbandry/gun/wine chains, economy, night cycle |
+| [07 — Vanilla item atlas](docs/07-item-atlas.md) | Item counts, measuring containers, key machines/modules/tools, “use what the game has” notes |
+
+### Key findings
+
+1. **Version mismatch**: installed `100-Rev13` / `0.46D`; community docs are `100-Rev14` beta. Some documented APIs are absent.
+2. **No world block grid**; racks and cables are items in the base grid. Cables do not carry items.
+3. **Items are unique instances**: condition, authenticity, contents, and features can differ; solid/fluid disks are separate; instances are never merged; complex items are disassembled on ingest.
+4. **Templates gate ghosts**: five 17×10 tabs, 2×1 patterns, only patterned outputs remain as ghosts at zero stock.
+5. **Biology is monitored, not virtualized**: hydroponic/RAS keep vanilla cycles; RAS monitor forecasts `Σ groupCount × adult water need`; filterless loop uses dirty water → fluid disk → fractionation service → pure water.
+6. **Compatibility is endpoint-first**: role-map tags, `MachineryPanel` roles, vanilla profiles, or manual mapping; no per-machine proxy; reflection only enumerates.
+7. **The network is a bus, not a factory**: no virtual fabrication; every item needs a real Endpoint, every liquid fraction needs real network fluid processed by the service; Planner is read-only.
+
+### Repository layout
+
+```text
+.
+├── README.md
+├── docs/
+│   ├── 01-ae2-gameplay.md
+│   ├── 02-game-gameplay.md
+│   ├── 03-modding-api-feasibility.md
+│   ├── 04-project-brief.md
+│   ├── 05-current-design-decisions.md
+│   ├── 06-vanilla-production-chains.md
+│   └── 07-item-atlas.md
+├── ref/
+│   ├── README.md
+│   ├── class-index.md
+│   ├── item-catalog.md
+│   └── item-catalog.json
+├── tools/
+│   └── build_item_catalog.py
+└── .gitignore
+```
+
+### Local caches and tracked indexes
+
+Local-only, not committed: AE2 source/guidebook, community modding guide, decompiled game assembly, localization tables, detailed item catalog, and local FaucetFilter/WaterTower study decompiles.
+
+Tracked public indexes:
+
+- `ref/class-index.md` — class names/responsibilities only.
+- `ref/item-catalog.md` / `ref/item-catalog.json` — IDs, directories, types, tags, capacities, values; no localized names/descriptions.
+- Regenerate with `python -I tools/build_item_catalog.py`.
+
+Do not publish decompiled game code or localization tables. If reusing AE2 code, comply with LGPL-3.0; clean-room is preferred.
+
+### Naming
 
 - Repository: `ProbablyAppliedEnergistics2`
 - Display: **可能是应用能源2 / Probably Applied Energistics 2**
-- Code namespace: `ProbablyAppliedEnergistics2` (keep the full AE2 name; avoid “AE” alone).
+- Namespace: `ProbablyAppliedEnergistics2` (keep the full AE2 name; avoid “AE” alone).
